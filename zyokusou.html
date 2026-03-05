@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>褥瘡管理支援ツール - Final Optimized</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --primary: #007bff; --danger: #dc3545; --bg: #f8f9fa; --success: #28a745; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary); font-size: 1.2rem; margin: 0 0 10px 0; }
+        .step { display: none; } .step.active { display: block; }
+        .form-group { margin-bottom: 8px; }
+        label { display: block; font-weight: bold; margin-bottom: 2px; font-size: 0.9rem; }
+        input[type="text"], input[type="date"], select, textarea { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        textarea { resize: none; height: 70px; }
+        .radio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 4px; }
+        .radio-item input { display: none; }
+        .radio-item label { display: block; background: #eee; padding: 10px 2px; text-align: center; border-radius: 6px; cursor: pointer; font-size: 0.8rem; border: 2px solid transparent; }
+        .radio-item input:checked + label { background: var(--primary); color: white; border-color: #0056b3; }
+        .btn-group { display: flex; justify-content: space-between; margin-top: 15px; gap: 8px; }
+        button { padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
+        .btn-next { background: var(--primary); color: white; } .btn-prev { background: #6c757d; color: white; }
+        .btn-pdf { background: var(--success); color: white; width: 100%; margin-top: 8px; }
+        .preset-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+        .btn-preset { padding: 5px 8px; background: #e9ecef; border: 1px solid #ccc; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
+        .score-box { background: #e9ecef; padding: 8px; border-radius: 8px; text-align: center; margin: 8px 0; font-weight: bold; font-size: 0.9rem; }
+        .preview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-top: 5px; }
+        .preview-grid img { width: 100%; height: 70px; object-fit: cover; border: 1px solid #ddd; }
+
+        /* PDF Layout: 極限まで余白を削減 */
+        #pdf-content { position: absolute; left: -9999px; width: 750px; background: white; padding: 5px 15px; }
+        .pdf-header { border-bottom: 1.5px solid #000; margin-bottom: 4px; padding-bottom: 1px; }
+        .pdf-header-grid { display: grid; grid-template-columns: 1.8fr 1fr; font-size: 12px; }
+        .pdf-section { border: 1px solid #000; margin-bottom: 2px; padding: 2px 5px; }
+        .pdf-section h4 { margin: 0; font-size: 12px; background: #f0f0f0; padding: 1px 4px; border-bottom: 1px solid #000; }
+        .pdf-section p { margin: 1px 0; font-size: 11px; line-height: 1.1; }
+        .pdf-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 1px; }
+        .pdf-photo-grid img { width: 100%; height: 200px; object-fit: contain; background: #fafafa; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>褥瘡管理支援ツール</h1>
+    
+    <div class="step active" id="step1">
+        <div class="form-group"><label>患者ID</label><input type="text" id="patient-id" onchange="loadHistory()"></div>
+        <div class="form-group"><label>氏名</label><input type="text" id="patient-name"></div>
+        <div class="form-group"><label>評価日</label><input type="date" id="eval-date"></div>
+        <div id="history-info" style="color: green; font-size: 0.75rem; margin-bottom: 4px;"></div>
+        <button class="btn-next" onclick="nextStep(2)">次へ（リスク評価）</button>
+    </div>
+
+    <div class="step" id="step2">
+        <div id="braden-form"></div>
+        <div class="score-box">Braden Score: <span id="braden-total">23</span>点</div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(1)">戻る</button><button class="btn-next" onclick="applyAutoPlan(); nextStep(3);">次へ</button></div>
+    </div>
+
+    <div class="step" id="step3">
+        <div class="form-group"><label>寝具</label><select id="plan-mattress"><option>標準マットレス</option><option>静止型ウレタン</option><option>圧切替型エア</option><option>自動体変付エア</option></select></div>
+        <div class="form-group"><label>体位変換</label><select id="plan-positioning"><option>制限なし</option><option>4時間ごと</option><option>2時間ごと</option></select></div>
+        <div class="form-group"><label>褥瘡の有無</label><select id="has-ulcer"><option value="no">なし</option><option value="yes">あり</option></select></div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(2)">戻る</button><button class="btn-next" onclick="goToStep4()">次へ</button></div>
+    </div>
+
+    <div class="step" id="step4">
+        <div id="design-r-form"></div>
+        <div class="score-box">DESIGN-R Score: <span id="design-total">0</span>点</div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(3)">戻る</button><button class="btn-next" onclick="nextStep(5)">次へ</button></div>
+    </div>
+
+    <div class="step" id="step5">
+        <div class="form-group"><label>写真（最大4枚）</label><input type="file" accept="image/*" capture="camera" multiple onchange="handleImages(this)"><div id="preview-container" class="preview-grid"></div></div>
+        <div class="form-group">
+            <label>状態・今後の治療方針</label>
+            <div class="preset-container">
+                <button class="btn-preset" onclick="addPreset('微温湯洗浄')">洗浄</button>
+                <button class="btn-preset" onclick="addPreset('ゲーベン')">ゲーベン</button>
+                <button class="btn-preset" onclick="addPreset('カデックス')">カデックス</button>
+                <button class="btn-preset" onclick="addPreset('ハイドロサイト')">ハイドロサイト</button>
+                <button class="btn-preset" onclick="addPreset('デブ案')">デブ案</button>
+            </div>
+            <textarea id="treatment-plan"></textarea>
+        </div>
+        <button class="btn-pdf" onclick="generatePDF()">PDFを生成・保存</button>
+        <button class="btn-prev" style="width:100%; margin-top:5px; padding:8px;" onclick="backFromStep5()">戻る</button>
+    </div>
+</div>
+
+<div id="pdf-content">
+    <div class="pdf-header">
+        <h2 style="margin:0; font-size: 15px;">褥瘡管理・経過計画書</h2>
+        <div class="pdf-header-grid">
+            <div>ID: <span id="pdf-id"></span> / 氏名: <span id="pdf-name"></span> 様</div>
+            <div style="text-align: right;">評価日: <span id="pdf-date"></span></div>
+        </div>
+    </div>
+    <div class="pdf-section"><h4>■ リスク評価</h4><p>Braden: <strong><span id="pdf-braden"></span>点</strong> / 判定: <span id="pdf-risk"></span></p></div>
+    <div class="pdf-section"><h4>■ 管理計画</h4><p>寝具: <span id="pdf-mattress"></span> / 体位変換: <span id="pdf-pos"></span></p></div>
+    <div id="pdf-ulcer-section" class="pdf-section" style="display:none;"><h4>■ DESIGN-R® 2020</h4><p>Score: <strong><span id="pdf-design-score"></span></strong> (深さ: <span id="pdf-depth"></span>) / 内訳: <span id="pdf-design-detail" style="font-family:monospace;"></span></p></div>
+    <div class="pdf-section" style="min-height: 410px;"><h4 style="text-align: center;">■ 患部写真</h4><div id="pdf-photo-grid" class="pdf-photo-grid"></div></div>
+    <div class="pdf-section"><h4>■ 状態・今後の治療方針</h4><p id="pdf-treatment-text" style="white-space: pre-wrap; font-size: 10px;"></p></div>
+</div>
+
+<script>
+    const bradenItems = [{id:'sensory', name:'知覚', opts:['1.不可','2.重制限','3.軽制限','4.正常']},{id:'moisture', name:'湿潤', opts:['1.常に','2.多湿','3.時々','4.滅多に']},{id:'activity', name:'活動', opts:['1.寝たきり','2.椅子','3.歩行','4.頻繁']},{id:'mobility', name:'可動', opts:['1.不能','2.重制限','3.軽制限','4.正常']},{id:'nutrition', name:'栄養', opts:['1.不良','2.やや不良','3.良好','4.極良']},{id:'friction', name:'摩擦', opts:['1.あり','2.潜在的','3.なし']}];
+    const designRItems = [{id:'D', name:'d/D', opts:['d0:発赤','d1:真皮','D3:皮下','D4:骨','DU:不明']},{id:'E', name:'E', opts:['e0:無','e3:少','E6:中','E12:多']},{id:'S', name:'S', opts:['s0:0','s3:<4','S6:4-16','S8:16-36','S12:36-64','S15:>64']},{id:'I', name:'I', opts:['i0:無','i1:局所','I3:全身','I9:臨界']},{id:'G', name:'G', opts:['g0:100%','g1:>50%','G3:<50%','G6:なし']},{id:'N', name:'N', opts:['n0:無','n3:軟','N6:硬']},{id:'P', name:'P', opts:['p0:無','p6:<4','P9:4-16','P12:16-36','P24:>36']}];
+    let selectedImages = [];
+
+    window.onload = () => { document.getElementById('eval-date').valueAsDate = new Date(); renderForm('braden-form', bradenItems, updateBraden); renderForm('design-r-form', designRItems, updateDesignR); };
+
+    function renderForm(id, items, handler) {
+        const c = document.getElementById(id);
+        items.forEach(item => {
+            const g = document.createElement('div'); g.className='form-group'; g.innerHTML=`<label style="font-size:0.75rem;">${item.name}</label>`;
+            const r = document.createElement('div'); r.className='radio-grid';
+            item.opts.forEach((o, i) => { const v = parseInt(o.match(/\d+/)?.[0] || 0); r.innerHTML+=`<div class="radio-item"><input type="radio" name="${item.id}" id="${item.id}-${i}" value="${v}" onchange="${handler.name}()"><label for="${item.id}-${i}">${o}</label></div>`; });
+            g.appendChild(r); c.appendChild(g);
+        });
+    }
+
+    function addPreset(t) { const a = document.getElementById('treatment-plan'); a.value += (a.value ? '、' : '') + t; }
+    function nextStep(n) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById('step'+n).classList.add('active'); window.scrollTo(0,0); }
+    function goToStep4() { document.getElementById('has-ulcer').value === 'yes' ? nextStep(4) : nextStep(5); }
+    function backFromStep5() { document.getElementById('has-ulcer').value === 'yes' ? nextStep(4) : nextStep(3); }
+
+    function updateBraden() {
+        let t = 0; bradenItems.forEach(it => { const s = document.querySelector(`input[name="${it.id}"]:checked`); if(s) t+=parseInt(s.value); });
+        const el = document.getElementById('braden-total'); if(el) el.innerText = t;
+    }
+
+    function applyAutoPlan() {
+        const t = parseInt(document.getElementById('braden-total').innerText || 23);
+        const m = document.getElementById('plan-mattress'), p = document.getElementById('plan-positioning');
+        if(t<=14){ m.value="圧切替型エア"; p.value="2時間ごと"; } else if(t<=18){ m.value="静止型ウレタン"; p.value="4時間ごと"; }
+    }
+
+    function updateDesignR() {
+        let t = 0, det = [];
+        designRItems.forEach(it => {
+            const s = document.querySelector(`input[name="${it.id}"]:checked`);
+            if(s){ if(it.id!=='D') t+=parseInt(s.value); det.push(s.parentElement.textContent.trim().split(':')[0]); }
+        });
+        const el = document.getElementById('design-total'); if(el) el.innerText = t;
+        return { t, det: det.join('-') };
+    }
+
+    function handleImages(input) {
+        const c = document.getElementById('preview-container');
+        if(input.files){ Array.from(input.files).slice(0, 4).forEach(f => {
+            const r = new FileReader(); r.onload = (e) => {
+                const img = new Image(); img.onload = () => {
+                    const cv = document.createElement('canvas'); const ctx = cv.getContext('2d');
+                    const s = Math.min(800/img.width, 800/img.height); cv.width = img.width*s; cv.height = img.height*s;
+                    ctx.drawImage(img, 0,0, cv.width, cv.height); const url = cv.toDataURL('image/jpeg', 0.6);
+                    selectedImages.push(url); const p = document.createElement('img'); p.src=url; c.appendChild(p);
+                }; img.src = e.target.result;
+            }; r.readAsDataURL(f);
+        }); }
+    }
+
+    function loadHistory() {
+        const id = document.getElementById('patient-id').value; const h = localStorage.getItem('ulcer_v3_'+id);
+        if(h){ const d = JSON.parse(h); document.getElementById('history-info').innerText = `【前回】Braden ${d.braden}点`; }
+    }
+
+    async function generatePDF() {
+        const { jsPDF } = window.jspdf; 
+        const id = document.getElementById('patient-id').value;
+        const name = document.getElementById('patient-name').value; 
+        const date = document.getElementById('eval-date').value;
+        if(!id || !name){ alert("患者情報を入力してください"); return; }
+
+        document.getElementById('pdf-id').innerText = id; document.getElementById('pdf-name').innerText = name;
+        document.getElementById('pdf-date').innerText = date;
+        document.getElementById('pdf-braden').innerText = document.getElementById('braden-total').innerText;
+        document.getElementById('pdf-risk').innerText = parseInt(document.getElementById('braden-total').innerText)<=14 ? "高リスク" : "低リスク";
+        document.getElementById('pdf-mattress').innerText = document.getElementById('plan-mattress').value;
+        document.getElementById('pdf-pos').innerText = document.getElementById('plan-positioning').value;
+        document.getElementById('pdf-treatment-text').innerText = document.getElementById('treatment-plan').value;
+        
+        const has = document.getElementById('has-ulcer').value, dData = updateDesignR();
+        if(has==='yes'){
+            document.getElementById('pdf-ulcer-section').style.display = 'block';
+            document.getElementById('pdf-design-score').innerText = dData.t;
+            const dp = document.querySelector('input[name="D"]:checked');
+            document.getElementById('pdf-depth').innerText = dp ? dp.parentElement.textContent.trim().split(':')[0] : "未";
+            document.getElementById('pdf-design-detail').innerText = dData.det;
+        }
+
+        const grid = document.getElementById('pdf-photo-grid'); grid.innerHTML='';
+        selectedImages.slice(0,4).forEach(src => { const i = document.createElement('img'); i.src=src; grid.appendChild(i); });
+
+        const area = document.getElementById('pdf-content');
+        const canvas = await html2canvas(area, { scale: 2 });
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        // ★修正ポイント：アスペクト比を計算して貼り付け
+        const imgWidth = 210; // A4幅
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        // 画像を貼り付け（縦に引き伸ばさない）
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
+        
+        pdf.save(`${date}_${id}_${name}_褥瘡管理.pdf`);
+        localStorage.setItem('ulcer_v3_'+id, JSON.stringify({ braden: document.getElementById('braden-total').innerText, date: date }));
+        alert("PDFを保存しました。");
+    }
+</script>
+</body>
+</html>
