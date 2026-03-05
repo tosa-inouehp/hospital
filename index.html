@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>井上病院 診療支援ポータル</title>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --accent-color: #e3f2fd;
+            --text-color: #333;
+            --bg-color: #f4f7f9;
+        }
+        body {
+            font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        header {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #e0e0e0;
+        }
+        .card:active {
+            transform: scale(0.98);
+            background-color: var(--accent-color);
+        }
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        .card-desc {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            font-size: 0.8rem;
+            color: #999;
+        }
+        .badge {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>井上病院 診療支援ポータル</h1>
+</header>
+
+<div class="container">
+    <a href="zyokusou.html" class="card">
+        <div class="icon">🩹</div>
+        <div class="card-title">褥瘡管理ツール</div>
+        <div class="card-desc">
+            Bradenスケール評価 / DESIGN-R® 2020<br>
+            経過写真撮影・計画書PDF出力
+        </div>
+    </a>
+
+    <a href="incident.html" class="card">
+        <div class="icon">⚠️</div>
+        <div class="card-title">インシデントレポート</div>
+        <div class="card-desc">
+            発生状況の即時記録 / 影響レベル判定<br>
+            再発防止策策定支援ツール
+        </div>
+        <div class="badge">準備中</div>
+    </a>
+
+    <a href="#" class="card" style="opacity: 0.6; pointer-events: none;">
+        <div class="icon">📋</div>
+        <div class="card-title">看護アセスメント</div>
+        <div class="card-desc">
+            入院時スクリーニング / 転倒転落リスク<br>
+            （近日公開予定）
+        </div>
+    </a>
+</div>
+
+<footer>
+    &copy; 2026 Inoue Hospital - Medical Safety Management Office
+</footer>
+
+</body>
+</html>
