@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>井上病院 インシデントレポート v5</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --primary: #0056b3; --danger: #dc3545; --bg: #f4f7f9; --success: #28a745; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary); font-size: 1.2rem; margin-bottom: 10px; }
+        .step { display: none; } .step.active { display: block; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; font-weight: bold; margin-bottom: 3px; font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        textarea { height: 60px; resize: none; }
+        
+        /* 4M Checkbox Style */
+        .m4-section { background: #fdfdfd; border: 1px solid #eee; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .m4-title { font-size: 0.85rem; color: var(--primary); border-bottom: 1px solid var(--primary); margin-bottom: 5px; font-weight: bold; }
+        .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 5px; }
+        .check-item { font-size: 0.85rem; display: flex; align-items: center; }
+        .check-item input { width: auto; margin-right: 5px; }
+
+        .level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); gap: 4px; }
+        .level-item input { display: none; }
+        .level-item label { display: block; background: #eee; padding: 10px 0; text-align: center; border-radius: 6px; cursor: pointer; font-size: 0.75rem; border: 2px solid transparent; }
+        .level-item input:checked + label { background: var(--primary); color: white; border-color: #003366; }
+        #level-hint { background: #fff3cd; border-left: 5px solid #ffc107; padding: 10px; margin-top: 5px; font-size: 0.85rem; line-height: 1.4; display: none; border-radius: 4px; }
+
+        .btn-group { display: flex; justify-content: space-between; margin-top: 15px; gap: 10px; }
+        button { padding: 15px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; flex: 1; }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-prev { background: #6c757d; color: white; }
+        
+        /* PDF Layout */
+        #pdf-content { position: absolute; left: -9999px; width: 750px; background: white; padding: 10px 25px; color: black; }
+        .pdf-header { border-bottom: 2px solid #000; margin-bottom: 5px; position: relative; }
+        .pdf-section { border: 1px solid #000; margin-bottom: 3px; padding: 5px 8px; }
+        .pdf-section h4 { margin: 0 0 2px 0; background: #f0f0f0; padding: 1px 5px; font-size: 12px; border-bottom: 1px solid #000; }
+        .pdf-section p { margin: 0; font-size: 11px; line-height: 1.2; }
+        .pdf-sig-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .pdf-sig-table td { border: 1px solid #000; width: 33.3%; height: 60px; text-align: center; vertical-align: top; font-size: 10px; padding: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>インシデント・アクシデント報告</h1>
+
+    <div class="step active" id="step1">
+        <div class="form-group"><label>患者ID</label><input type="text" id="patient-id"></div>
+        <div class="form-group"><label>患者氏名</label><input type="text" id="patient-name"></div>
+        <div class="form-group"><label>発生日時</label><input type="datetime-local" id="event-datetime"></div>
+        <div class="form-group"><label>発生場所</label><input type="text" id="event-place" placeholder="3F 廊下 など"></div>
+        <button class="btn-next" onclick="nextStep(2)">次へ（影響レベル）</button>
+    </div>
+
+    <div class="step" id="step2">
+        <div class="form-group">
+            <label>影響レベル</label>
+            <div class="level-grid">
+                <div class="level-item"><input type="radio" name="level" id="lv0" value="0" onchange="showLevelHint(0)"><label for="lv0">Lv 0</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv1" value="1" onchange="showLevelHint(1)"><label for="lv1">Lv 1</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv2" value="2" onchange="showLevelHint(2)"><label for="lv2">Lv 2</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv3a" value="3a" onchange="showLevelHint('3a')"><label for="lv3a">Lv 3a</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv3b" value="3b" onchange="showLevelHint('3b')"><label for="lv3b">Lv 3b</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv4" value="4" onchange="showLevelHint(4)"><label for="lv4">Lv 4</label></div>
+                <div class="level-item"><input type="radio" name="level" id="lv5" value="5" onchange="showLevelHint(5)"><label for="lv5">Lv 5</label></div>
+            </div>
+            <div id="level-hint"></div>
+        </div>
+        <div class="form-group">
+            <label>事象の種類</label>
+            <select id="event-type">
+                <option value="誤薬">誤薬</option><option value="転倒転落">転倒・転落</option><option value="抜去">ドレーン・ライン抜去</option>
+                <option value="療養ケア">療養上の世話</option><option value="設備機器">医療機器・設備</option><option value="その他">その他</option>
+            </select>
+        </div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(1)">戻る</button><button class="btn-next" onclick="nextStep(3)">次へ（5W1H）</button></div>
+    </div>
+
+    <div class="step" id="step3">
+        <div class="form-group"><label>【誰が・何を】(Who/What)</label><textarea id="desc-what" placeholder="例：A看護師がB様に朝食後の薬を配薬中..."></textarea></div>
+        <div class="form-group"><label>【どのように】(How)</label><textarea id="desc-how" placeholder="例：隣のベッドの患者と取り違えて渡してしまった..."></textarea></div>
+        <div class="form-group"><label>【なぜ起きたか】(Why)</label><textarea id="desc-why" placeholder="例：同室者の名前の確認を怠り、思い込みで渡した..."></textarea></div>
+        <div class="form-group"><label>【実施した処置】(Action)</label><textarea id="desc-action" placeholder="例：直ちに回収し、主治医へ報告。バイタルに変化なし。"></textarea></div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(2)">戻る</button><button class="btn-next" onclick="nextStep(4)">次へ（分析・要因）</button></div>
+    </div>
+
+    <div class="step" id="step4">
+        <label>背景要因（4M分析）</label>
+        <div class="m4-section">
+            <div class="m4-title">Man（人的要因）</div>
+            <div class="check-grid">
+                <label class="check-item"><input type="checkbox" name="m4" value="知識・技術不足">知識・技術不足</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="確認不足（思い込み）">確認不足</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="連携・連絡不備">連携・連絡不備</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="疲労・体調不良">疲労・体調不良</label>
+            </div>
+            <div class="m4-title">Machine（物的要因）</div>
+            <div class="check-grid">
+                <label class="check-item"><input type="checkbox" name="m4" value="機器の故障・不備">機器故障・不備</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="表示・アラーム不備">アラーム不備</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="レイアウト上の問題">レイアウト問題</label>
+            </div>
+            <div class="m4-title">Media（環境・メディア）</div>
+            <div class="check-grid">
+                <label class="check-item"><input type="checkbox" name="m4" value="手順書・マニュアル不備">手順書不備</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="伝達情報の誤字脱字">伝達情報誤字</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="整理整頓の不備">整理整頓不備</label>
+            </div>
+            <div class="m4-title">Management（管理・組織）</div>
+            <div class="check-grid">
+                <label class="check-item"><input type="checkbox" name="m4" value="勤務体制・人員不足">人員不足</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="教育・指導不足">教育・指導不足</label>
+                <label class="check-item"><input type="checkbox" name="m4" value="組織ルール・文化の不備">組織ルールの不備</label>
+            </div>
+            <label style="font-size: 0.8rem; margin-top:5px;">その他・詳細</label>
+            <input type="text" id="ana-other" placeholder="その他の要因があれば入力">
+        </div>
+        <div class="form-group"><label>当面の対策（再発防止策）</label><textarea id="ana-measure"></textarea></div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(3)">戻る</button><button class="btn-next" onclick="nextStep(5)">次へ（署名）</button></div>
+    </div>
+
+    <div class="step" id="step5">
+        <div class="form-group"><label>部署</label><input type="text" id="sig-dept" placeholder="例：3F病棟"></div>
+        <div class="form-group"><label>職種</label><input type="text" id="sig-job" placeholder="例：看護師"></div>
+        <div class="form-group"><label>報告者氏名</label><input type="text" id="sig-reporter"></div>
+        <div class="btn-group"><button class="btn-prev" onclick="nextStep(4)">戻る</button><button class="btn-next" style="background:var(--success); color:white;" onclick="generatePDF()">PDF出力・完了</button></div>
+    </div>
+</div>
+
+<div id="pdf-content">
+    <div class="pdf-header">
+        <div style="position: absolute; right: 0; font-size: 10px; text-align: right;">報告日: <span id="pdf-rep-date"></span></div>
+        <h2 style="margin:0; font-size: 18px; text-align:center; padding-bottom: 5px;">インシデント・アクシデント報告書</h2>
+    </div>
+    <div class="pdf-section">
+        <h4>■ 発生概要</h4>
+        <p>患者ID: <span id="pdf-id"></span> / 氏名: <span id="pdf-name"></span> 様</p>
+        <p>日時: <span id="pdf-datetime"></span> / 場所: <span id="pdf-place"></span></p>
+    </div>
+    <div class="pdf-section">
+        <h4>■ 分類・影響レベル</h4>
+        <p style="font-size: 14px; font-weight: bold;">【レベル <span id="pdf-level"></span>】 <span id="pdf-type"></span></p>
+        <p id="pdf-level-def" style="font-size: 10px; color: #555;"></p>
+    </div>
+    <div class="pdf-section">
+        <h4>■ 事象の詳細 (5W1H)</h4>
+        <p><strong>【状況】</strong> <span id="pdf-desc-what"></span></p>
+        <p><strong>【経緯】</strong> <span id="pdf-desc-how"></span></p>
+        <p><strong>【原因】</strong> <span id="pdf-desc-why"></span></p>
+        <p><strong>【処置】</strong> <span id="pdf-desc-action"></span></p>
+    </div>
+    <div class="pdf-section">
+        <h4>■ 要因分析 (4M)</h4>
+        <p><strong>【選択項目】</strong> <span id="pdf-m4-list"></span></p>
+        <p><strong>【その他詳細】</strong> <span id="pdf-m4-other"></span></p>
+    </div>
+    <div class="pdf-section">
+        <h4>■ 当面の対策</h4>
+        <p id="pdf-ana-measure"></p>
+    </div>
+    <table class="pdf-sig-table">
+        <tr>
+            <td>報告部署・職種<br><br><span id="pdf-sig-dept-job"></span></td>
+            <td>報告者 署名<br><br><span id="pdf-sig-name" style="font-size:12px;"></span></td>
+            <td>安全管理者 検印<br><br></td>
+        </tr>
+    </table>
+</div>
+
+<script>
+    const levelDefs = {
+        '0': '【ヒヤリ・ハット】誤った実施前に気づいた',
+        '1': '【影響なし】実施したが、患者に影響はなかった',
+        '2': '【観察のみ】処置・治療は不要だったが、観察・検査が必要になった',
+        '3a': '【軽微な処置】簡単な処置・治療（消毒、絆創膏など）が必要になった',
+        '3b': '【濃厚な処置】濃厚な処置・治療（縫合、手術、転院など）が必要になった',
+        '4': '【永続的影響】永続的な障害や後遺症が残る',
+        '5': '【死亡】死亡の原因となった'
+    };
+
+    function showLevelHint(lv){
+        const h=document.getElementById('level-hint');
+        h.innerText=levelDefs[lv];
+        h.style.display='block';
+    }
+
+    function nextStep(n){
+        document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+        document.getElementById('step'+n).classList.add('active');
+        window.scrollTo(0,0);
+    }
+
+    async function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const now = new Date();
+        const reportDate = now.toLocaleDateString('ja-JP');
+
+        document.getElementById('pdf-rep-date').innerText = reportDate;
+        document.getElementById('pdf-id').innerText = document.getElementById('patient-id').value;
+        document.getElementById('pdf-name').innerText = document.getElementById('patient-name').value;
+        document.getElementById('pdf-datetime').innerText = document.getElementById('event-datetime').value.replace('T', ' ');
+        document.getElementById('pdf-place').innerText = document.getElementById('event-place').value;
+        
+        const lv = document.querySelector('input[name="level"]:checked')?.value || '未選択';
+        document.getElementById('pdf-level').innerText = lv;
+        document.getElementById('pdf-level-def').innerText = levelDefs[lv] || '';
+        document.getElementById('pdf-type').innerText = document.getElementById('event-type').value;
+
+        document.getElementById('pdf-desc-what').innerText = document.getElementById('desc-what').value;
+        document.getElementById('pdf-desc-how').innerText = document.getElementById('desc-how').value;
+        document.getElementById('pdf-desc-why').innerText = document.getElementById('desc-why').value;
+        document.getElementById('pdf-desc-action').innerText = document.getElementById('desc-action').value;
+
+        const m4 = Array.from(document.querySelectorAll('input[name="m4"]:checked')).map(el => el.value);
+        document.getElementById('pdf-m4-list').innerText = m4.join('、') || '特になし';
+        document.getElementById('pdf-m4-other').innerText = document.getElementById('ana-other').value;
+        document.getElementById('pdf-ana-measure').innerText = document.getElementById('ana-measure').value;
+
+        document.getElementById('pdf-sig-dept-job').innerText = document.getElementById('sig-dept').value + ' / ' + document.getElementById('sig-job').value;
+        document.getElementById('pdf-sig-name').innerText = document.getElementById('sig-reporter').value;
+
+        const canvas = await html2canvas(document.getElementById('pdf-content'), { scale: 2 });
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+        pdf.save(`${reportDate.replace(/\//g, '-')}_${document.getElementById('patient-id').value}_インシデント.pdf`);
+    }
+</script>
+</body>
+</html>
