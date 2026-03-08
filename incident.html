@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>井上病院 インシデントレポート v6</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-light: #e8f0fe;
+            --primary-dark: #1557b0;
+            --danger: #dc3545;
+            --danger-light: #fce8ea;
+            --success: #28a745;
+            --success-light: #e6f4ea;
+            --bg: #f0f4f8;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 12px;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        /* ===== ヘッダー ===== */
+        .app-header {
+            background: linear-gradient(135deg, var(--primary) 0%, #4285f4 100%);
+            color: white;
+            padding: 18px 20px 14px;
+            text-align: center;
+        }
+
+        .app-header h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .app-header .subtitle {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+
+        /* ===== プログレスバー ===== */
+        .progress-bar {
+            display: flex;
+            padding: 16px 20px 12px;
+            background: #fafbfc;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .progress-step::before {
+            content: '';
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            width: 100%;
+            height: 3px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .progress-step:last-child::before {
+            display: none;
+        }
+
+        .progress-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--border);
+            color: var(--text-light);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+            transition: all 0.4s ease;
+        }
+
+        .progress-step.active .progress-circle,
+        .progress-step.done .progress-circle {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(26, 115, 232, 0.4);
+        }
+
+        .progress-step.done .progress-circle {
+            background: var(--success);
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
+        }
+
+        .progress-step.done::before {
+            background: var(--success);
+        }
+
+        .progress-step.active::before {
+            background: linear-gradient(90deg, var(--success), var(--border));
+        }
+
+        .progress-label {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-light);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .progress-step.active .progress-label {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        /* ===== ステップ共通 ===== */
+        .step-content {
+            padding: 20px;
+            display: none;
+            animation: fadeIn 0.35s ease;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 14px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--primary-light);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title .icon {
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+
+        .form-group label .req {
+            color: var(--danger);
+            font-size: 0.7rem;
+            margin-left: 4px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="datetime-local"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: #fafbfc;
+            color: var(--text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            -webkit-appearance: none;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+            background: white;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* ===== 性別ボタン ===== */
+        .gender-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .gender-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: #fafbfc;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .gender-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        /* ===== 影響レベル ===== */
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 6px;
+        }
+
+        .level-card {
+            padding: 12px 6px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            background: #fafbfc;
+        }
+
+        .level-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .level-card.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 3px 12px rgba(26, 115, 232, 0.3);
+        }
+
+        .level-card.selected.accident {
+            border-color: var(--danger);
+            background: var(--danger);
+            box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .level-card .lv-num {
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .level-card .lv-label {
+            font-size: 0.6rem;
+            margin-top: 2px;
+            opacity: 0.8;
+        }
+
+        .level-hint {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 10px 14px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            border-radius: 0 8px 8px 0;
+            display: none;
+            animation: fadeIn 0.3s;
+            line-height: 1.5;
+        }
+
+        /* ===== 動的サブフォーム ===== */
+        .sub-form {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .sub-form.active {
+            display: block;
+        }
+
+        .sub-form-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 10px;
+        }
+
+        .sub-form-card .sub-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 10px;
+        }
+
+        /* ===== チェックボックスグリッド ===== */
+        .check-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            padding: 6px 8px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .check-item:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .check-item input[type="checkbox"],
+        .check-item input[type="radio"] {
+            width: auto;
+            margin: 0;
+        }
+
+        /* ===== 4M分析 ===== */
+        .m4-section {
+            background: #fdfdfd;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .m4-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--primary);
+            border-bottom: 1px solid var(--primary-light);
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+        }
+
+        /* ===== グッドジョブ ===== */
+        .good-job-section {
+            background: var(--success-light);
+            border: 2px solid var(--success);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+            display: none;
+        }
+
+        .good-job-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        .good-job-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--success);
+            margin-bottom: 8px;
+        }
+
+        /* ===== ボタン ===== */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s;
+            font-family: inherit;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #4285f4);
+            color: white;
+            box-shadow: 0 3px 12px rgba(26, 115, 232, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 5px 16px rgba(26, 115, 232, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: var(--text);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #34ce57);
+            color: white;
+            box-shadow: 0 3px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-draft {
+            background: linear-gradient(135deg, #ff9800, #ffb74d);
+            color: white;
+            box-shadow: 0 3px 12px rgba(255, 152, 0, 0.3);
+            flex: 0.6;
+        }
+
+        /* ===== 起動画面 ===== */
+        .start-screen {
+            padding: 20px;
+            display: none;
+            animation: fadeIn 0.35s ease;
+        }
+
+        .start-screen.active {
+            display: block;
+        }
+
+        .start-new-btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary), #4285f4);
+            color: white;
+            box-shadow: 0 4px 16px rgba(26, 115, 232, 0.3);
+            transition: all 0.25s;
+            font-family: inherit;
+            margin-bottom: 20px;
+        }
+
+        .start-new-btn:hover {
+            box-shadow: 0 6px 20px rgba(26, 115, 232, 0.4);
+        }
+
+        .drafts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .drafts-header h3 {
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .drafts-clear-btn {
+            font-size: 0.75rem;
+            color: var(--danger);
+            background: none;
+            border: 1px solid var(--danger);
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .draft-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fafbfc;
+        }
+
+        .draft-card:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .draft-info {
+            flex: 1;
+        }
+
+        .draft-info .draft-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .draft-info .draft-meta {
+            font-size: 0.72rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+
+        .draft-delete {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: var(--danger-light);
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-left: 10px;
+            transition: all 0.2s;
+        }
+
+        .draft-delete:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .no-drafts {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* ===== トースト通知 ===== */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* ===== トップに戻るボタン ===== */
+        .back-top-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-size: 0.78rem;
+            color: var(--text-light);
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .back-top-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        /* ===== PDF用（非表示） ===== */
+        #pdf-content {
+            position: absolute;
+            left: -9999px;
+            width: 750px;
+            background: white;
+            padding: 15px 30px;
+            color: black;
+            font-family: 'Hiragino Sans', sans-serif;
+        }
+
+        .pdf-header {
+            border-bottom: 3px solid #000;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            position: relative;
+        }
+
+        .pdf-header.accident {
+            border-bottom-color: var(--danger);
+        }
+
+        .pdf-header h2 {
+            margin: 0;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .pdf-header .pdf-date {
+            position: absolute;
+            right: 0;
+            top: 0;
+            font-size: 10px;
+        }
+
+        .pdf-section {
+            border: 1px solid #ccc;
+            margin-bottom: 4px;
+            padding: 6px 10px;
+        }
+
+        .pdf-section h4 {
+            margin: 0 0 3px;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .pdf-section.accident h4 {
+            background: #fce8ea;
+        }
+
+        .pdf-section p {
+            margin: 1px 0;
+            font-size: 10.5px;
+            line-height: 1.4;
+        }
+
+        .pdf-sig-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        .pdf-sig-table td {
+            border: 1px solid #000;
+            width: 33.3%;
+            height: 55px;
+            text-align: center;
+            vertical-align: top;
+            font-size: 10px;
+            padding: 3px;
+        }
+
+        /* ===== レスポンシブ ===== */
+        @media (max-width: 500px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .check-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .level-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="app-header">
+            <h1>🏥 インシデント・アクシデント報告</h1>
+            <div class="subtitle">井上病院 医療安全管理室</div>
+        </div>
+
+        <!-- プログレスバー -->
+        <div class="progress-bar" id="progress-bar" style="display:none;">
+            <div class="progress-step active" data-step="1">
+                <span class="progress-circle">1</span>
+                <span class="progress-label">基本情報</span>
+            </div>
+            <div class="progress-step" data-step="2">
+                <span class="progress-circle">2</span>
+                <span class="progress-label">事象詳細</span>
+            </div>
+            <div class="progress-step" data-step="3">
+                <span class="progress-circle">3</span>
+                <span class="progress-label">分析・対策</span>
+            </div>
+        </div>
+
+        <!-- ========== 起動画面 ========== -->
+        <div class="start-screen active" id="start-screen">
+            <button class="start-new-btn" onclick="startNew()">📝 新規レポートを作成</button>
+            <div class="drafts-header">
+                <h3>📂 保存済みの下書き</h3>
+                <button class="drafts-clear-btn" onclick="clearAllDrafts()">🗑️ 全削除</button>
+            </div>
+            <div id="draft-list"></div>
+        </div>
+
+        <!-- ========== STEP 1: 基本・患者情報 ========== -->
+        <div class="step-content" id="step1">
+            <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
+            <div class="section-title"><span class="icon">👤</span> 報告者情報</div>
+
+            <div class="form-group">
+                <label>報告者氏名 <span class="req">*必須</span></label>
+                <input type="text" id="reporter-name" placeholder="例: 山田 花子">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>職種 <span class="req">*必須</span></label>
+                    <select id="reporter-job">
+                        <option value="">選択してください</option>
+                        <option>医師</option>
+                        <option>看護師</option>
+                        <option>介護福祉士</option>
+                        <option>看護補助者/介護助手</option>
+                        <option>薬剤師</option>
+                        <option>放射線技師</option>
+                        <option>臨床検査技師</option>
+                        <option>理学療法士</option>
+                        <option>作業療法士</option>
+                        <option>言語聴覚士</option>
+                        <option>管理栄養士</option>
+                        <option>事務職</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>所属 <span class="req">*必須</span></label>
+                    <select id="reporter-dept">
+                        <option value="">選択してください</option>
+                        <option>外来</option>
+                        <option>医療病棟</option>
+                        <option>介護医療院</option>
+                        <option>リハビリテーション室</option>
+                        <option>薬剤部</option>
+                        <option>検査部</option>
+                        <option>放射線科</option>
+                        <option>手術室</option>
+                        <option>医事課/受付</option>
+                        <option>その他</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>経験年数</label>
+                    <select id="reporter-exp">
+                        <option value="">選択してください</option>
+                        <option>1年未満</option>
+                        <option>1〜3年</option>
+                        <option>3〜5年</option>
+                        <option>5〜10年</option>
+                        <option>10年以上</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>部署経験年数</label>
+                    <select id="reporter-dept-exp">
+                        <option value="">選択してください</option>
+                        <option>1年未満</option>
+                        <option>1〜3年</option>
+                        <option>3年以上</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title" style="margin-top:10px;"><span class="icon">🛏️</span> 患者情報</div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>患者ID <span class="req">*必須</span></label>
+                    <input type="number" id="patient-id" inputmode="numeric" placeholder="例: 12345">
+                </div>
+                <div class="form-group">
+                    <label>患者氏名 <span class="req">*必須</span></label>
+                    <input type="text" id="patient-name" placeholder="例: 山田 太郎">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>性別</label>
+                    <div class="gender-group">
+                        <div class="gender-btn" onclick="selectGender(this,'男性')">♂ 男性</div>
+                        <div class="gender-btn" onclick="selectGender(this,'女性')">♀ 女性</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>年代</label>
+                    <select id="patient-age">
+                        <option value="">選択してください</option>
+                        <option>10歳未満</option>
+                        <option>10代</option>
+                        <option>20代</option>
+                        <option>30代</option>
+                        <option>40代</option>
+                        <option>50代</option>
+                        <option>60代</option>
+                        <option>70代</option>
+                        <option>80代</option>
+                        <option>90代</option>
+                        <option>100歳以上</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title" style="margin-top:10px;"><span class="icon">📅</span> 発生情報</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>発生日時 <span class="req">*必須</span></label>
+                    <input type="datetime-local" id="event-datetime">
+                </div>
+                <div class="form-group">
+                    <label>発生場所</label>
+                    <input type="text" id="event-place" placeholder="例: 3F 廊下">
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="goStep(2)">次へ ▶ 事象詳細</button>
+                <button class="btn btn-draft" onclick="saveDraft()">💾 下書き保存</button>
+            </div>
+        </div>
+
+        <!-- ========== STEP 2: 事象判定と動的詳細 ========== -->
+        <div class="step-content" id="step2">
+            <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
+            <div class="section-title"><span class="icon">⚡</span> 影響レベル</div>
+            <div class="level-grid" id="level-grid"></div>
+            <div class="level-hint" id="level-hint"></div>
+
+            <div class="section-title" style="margin-top:18px;"><span class="icon">📋</span> 事象の大分類</div>
+            <div class="form-group">
+                <select id="event-category" onchange="showSubForm()">
+                    <option value="">選択してください</option>
+                    <option value="fall">転倒・転落</option>
+                    <option value="drug">注射・内服薬剤</option>
+                    <option value="food">栄養・食事</option>
+                    <option value="skin">褥瘡・皮膚損傷</option>
+                    <option value="trouble">接遇・患者トラブル</option>
+                    <option value="other">その他</option>
+                </select>
+            </div>
+
+            <!-- 転倒・転落 サブフォーム -->
+            <div class="sub-form" id="sub-fall">
+                <div class="sub-form-card">
+                    <div class="sub-title">🚶 転倒・転落の詳細</div>
+                    <div class="form-group">
+                        <label>ベッド柵</label>
+                        <select id="fall-fence">
+                            <option value="なし">なし</option>
+                            <option value="1-2箇所">1-2箇所</option>
+                            <option value="3箇所">3箇所</option>
+                            <option value="4箇所">4箇所</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>介助バー</label>
+                        <select id="fall-bar">
+                            <option value="なし">なし</option>
+                            <option value="固定">固定</option>
+                            <option value="ロック不備">ロック不備</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>センサー使用</label>
+                        <div class="check-grid">
+                            <label class="check-item"><input type="checkbox" name="fall-sensor" value="うーごくん">
+                                うーごくん</label>
+                            <label class="check-item"><input type="checkbox" name="fall-sensor" value="センサーマット">
+                                センサーマット</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>センサー状態</label>
+                        <select id="fall-sensor-status">
+                            <option value="">選択してください</option>
+                            <option>正常作動</option>
+                            <option>設定不適切</option>
+                            <option>スイッチOFF</option>
+                            <option>断線・故障</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 注射・内服薬剤 サブフォーム -->
+            <div class="sub-form" id="sub-drug">
+                <div class="sub-form-card">
+                    <div class="sub-title">💊 薬剤の詳細</div>
+                    <div class="form-group"><label>薬剤名</label><input type="text" id="drug-name" placeholder="薬剤名を入力">
+                    </div>
+                    <div class="form-group">
+                        <label>局面</label>
+                        <select id="drug-phase">
+                            <option value="">選択</option>
+                            <option>指示受け・転記</option>
+                            <option>準備</option>
+                            <option>実施直前確認</option>
+                            <option>実施中</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <select id="drug-content">
+                            <option value="">選択</option>
+                            <option>患者間違い</option>
+                            <option>種類間違い</option>
+                            <option>量・速度間違い</option>
+                            <option>実施忘れ</option>
+                            <option>その他</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 栄養・食事 サブフォーム -->
+            <div class="sub-form" id="sub-food">
+                <div class="sub-form-card">
+                    <div class="sub-title">🍽️ 栄養・食事の詳細</div>
+                    <div class="form-group">
+                        <label>内容</label>
+                        <select id="food-content">
+                            <option value="">選択</option>
+                            <option>配膳ミス</option>
+                            <option>食形態不一致</option>
+                            <option>誤嚥・窒息</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>食形態</label>
+                            <select id="food-form">
+                                <option value="">選択</option>
+                                <option>常食</option>
+                                <option>軟飯</option>
+                                <option>きざみ</option>
+                                <option>ミキサー</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>とろみ</label>
+                            <select id="food-toromi">
+                                <option value="">選択</option>
+                                <option>なし</option>
+                                <option>薄い</option>
+                                <option>中間</option>
+                                <option>濃い</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 褥瘡・皮膚損傷 サブフォーム -->
+            <div class="sub-form" id="sub-skin">
+                <div class="sub-form-card">
+                    <div class="sub-title">🩹 褥瘡・皮膚損傷の詳細</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>種類</label>
+                            <select id="skin-type">
+                                <option value="">選択</option>
+                                <option>褥瘡</option>
+                                <option>表皮剥離</option>
+                                <option>皮下出血</option>
+                                <option>切創</option>
+                                <option>発赤</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>部位</label>
+                            <select id="skin-part">
+                                <option value="">選択</option>
+                                <option>仙骨部</option>
+                                <option>踵部</option>
+                                <option>上肢</option>
+                                <option>下肢</option>
+                                <option>顔面・頭部</option>
+                                <option>その他</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 接遇・患者トラブル サブフォーム -->
+            <div class="sub-form" id="sub-trouble">
+                <div class="sub-form-card">
+                    <div class="sub-title">⚠️ トラブルの詳細</div>
+                    <div class="form-group">
+                        <label>種類</label>
+                        <select id="trouble-type">
+                            <option value="">選択</option>
+                            <option>暴言・暴力（対職員）</option>
+                            <option>暴言・暴力（対患者）</option>
+                            <option>診療拒否</option>
+                            <option>無断離院</option>
+                            <option>物品破損</option>
+                            <option>苦情</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- その他 サブフォーム -->
+            <div class="sub-form" id="sub-other">
+                <div class="sub-form-card">
+                    <div class="sub-title">📝 その他の詳細</div>
+                    <div class="form-group"><textarea id="other-detail" placeholder="採血、検査、医療機器等の詳細を入力"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="goStep(1)">◀ 戻る</button>
+                <button class="btn btn-primary" onclick="goStep(3)">次へ ▶ 分析・対策</button>
+                <button class="btn btn-draft" onclick="saveDraft()">💾 保存</button>
+            </div>
+        </div>
+
+        <!-- ========== STEP 3: 概要・分析・対策 ========== -->
+        <div class="step-content" id="step3">
+            <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
+            <div class="section-title"><span class="icon">📝</span> 事案の概要（5W1H）</div>
+            <div class="form-group">
+                <textarea id="summary-5w1h" placeholder="いつ・どこで・誰が・何を・どのように・なぜ を含めて記述してください"
+                    style="min-height:120px;"></textarea>
+            </div>
+
+            <div class="section-title"><span class="icon">🔍</span> 背景要因（4M分析）</div>
+            <div class="m4-section">
+                <div class="m4-title">👤 Man（人的要因）</div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="m4" value="確認ミス"> 確認ミス</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="知識不足"> 知識不足</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="思い込み"> 思い込み</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="連携不備"> 連携不備</label>
+                </div>
+            </div>
+            <div class="m4-section">
+                <div class="m4-title">⚙️ Machine（物的要因）</div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="m4" value="機器故障"> 機器故障</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="点検不備"> 点検不備</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="設備不備"> 設備不備</label>
+                </div>
+            </div>
+            <div class="m4-section">
+                <div class="m4-title">📄 Media（情報・環境要因）</div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="m4" value="伝達不備"> 伝達不備</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="手順書不備"> 手順書不備</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="整理整頓不備"> 整理整頓不備</label>
+                </div>
+            </div>
+            <div class="m4-section">
+                <div class="m4-title">🏢 Management（管理・組織要因）</div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="m4" value="人員不足"> 人員不足</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="教育不足"> 教育不足</label>
+                    <label class="check-item"><input type="checkbox" name="m4" value="組織ルール不備"> 組織ルール不備</label>
+                </div>
+            </div>
+
+            <div class="section-title"><span class="icon">😟</span> 当事者の状態</div>
+            <div class="form-group">
+                <div class="check-grid">
+                    <label class="check-item"><input type="radio" name="condition" value="通常"> 通常</label>
+                    <label class="check-item"><input type="radio" name="condition" value="肉体的疲労"> 肉体的疲労</label>
+                    <label class="check-item"><input type="radio" name="condition" value="精神的疲労"> 精神的疲労</label>
+                    <label class="check-item"><input type="radio" name="condition" value="多忙・焦り"> 多忙・焦り</label>
+                </div>
+            </div>
+
+            <div class="section-title"><span class="icon">💡</span> 今後の対策</div>
+            <div class="form-group">
+                <textarea id="measures" placeholder="再発防止のための対策を具体的に記述してください"></textarea>
+            </div>
+
+            <!-- グッドジョブ事例（Lv 0-2のみ） -->
+            <div class="good-job-section" id="good-job-section">
+                <div class="good-job-title">🌟 グッドジョブ事例</div>
+                <label class="check-item" style="margin-bottom:8px;">
+                    <input type="checkbox" id="good-job-check"> この事例はグッドジョブとして報告する
+                </label>
+                <div class="form-group">
+                    <textarea id="good-job-detail" placeholder="良かった点・工夫した点を記述してください"></textarea>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="goStep(2)">◀ 戻る</button>
+                <button class="btn btn-draft" onclick="saveDraft()">💾 保存</button>
+                <button class="btn btn-success" onclick="generatePDF()">📄 PDF出力・完了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ========== PDF出力用テンプレート ========== -->
+    <div id="pdf-content">
+        <div class="pdf-header" id="pdf-header">
+            <div class="pdf-date">報告日: <span id="pdf-rep-date"></span></div>
+            <h2 id="pdf-title">インシデント報告書</h2>
+        </div>
+        <div class="pdf-section" id="pdf-sec-reporter">
+            <h4>■ 報告者情報</h4>
+            <p>職種: <span id="pdf-job"></span> ／ 所属: <span id="pdf-dept"></span></p>
+            <p>経験年数: <span id="pdf-exp"></span> ／ 部署経験年数: <span id="pdf-dept-exp"></span></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-patient">
+            <h4>■ 患者情報・発生概要</h4>
+            <p>患者ID: <span id="pdf-pid"></span> ／ 氏名: <span id="pdf-pname"></span> 様 ／ 性別: <span id="pdf-gender"></span>
+                ／ 年代: <span id="pdf-age"></span></p>
+            <p>発生日時: <span id="pdf-datetime"></span> ／ 場所: <span id="pdf-place"></span></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-level">
+            <h4>■ 影響レベル・事象分類</h4>
+            <p style="font-size:13px;font-weight:bold;">【レベル <span id="pdf-level"></span>】 <span
+                    id="pdf-category"></span></p>
+            <p id="pdf-level-def" style="font-size:10px;color:#555;"></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-detail">
+            <h4>■ 事象の動的詳細</h4>
+            <p id="pdf-dynamic-detail"></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-summary">
+            <h4>■ 事案の概要（5W1H）</h4>
+            <p id="pdf-summary"></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-4m">
+            <h4>■ 背景要因（4M分析）</h4>
+            <p><strong>【選択項目】</strong> <span id="pdf-m4-list"></span></p>
+            <p><strong>【当事者の状態】</strong> <span id="pdf-condition"></span></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-measures">
+            <h4>■ 今後の対策</h4>
+            <p id="pdf-measures"></p>
+        </div>
+        <div class="pdf-section" id="pdf-sec-goodjob" style="display:none;">
+            <h4>■ グッドジョブ事例 🌟</h4>
+            <p id="pdf-goodjob"></p>
+        </div>
+        <table class="pdf-sig-table">
+            <tr>
+                <td>報告者<br><br><span id="pdf-sig-reporter"></span></td>
+                <td>職場長 検印<br><br></td>
+                <td>安全管理者 検印<br><br></td>
+            </tr>
+        </table>
+        <div style="text-align:right; font-size:10px; margin-top:8px; color:#555;">医療法人広正会 井上病院</div>
+    </div>
+
+    <script>
+        /* ===== データ定義 ===== */
+        const levelDefs = {
+            '0': { label: 'ヒヤリ・ハット', desc: '誤った医療行為等が実施される前に発見された', type: 'incident' },
+            '1': { label: '影響なし', desc: '実施されたが、患者への実害はなかった（何らかの影響を与えた可能性は否定できない）', type: 'incident' },
+            '2': { label: '観察強化', desc: '処置・治療は不要だったが、観察の強化・検査の必要性が生じた', type: 'incident' },
+            '3a': { label: '軽微な処置', desc: '簡単な処置・治療（消毒、湿布、絆創膏など）が必要になった', type: 'accident' },
+            '3b': { label: '濃厚な処置', desc: '濃厚な処置・治療（縫合、骨折の処置、手術、入院延長、外来受診など）が必要になった', type: 'accident' },
+            '4': { label: '永続的障害', desc: '永続的な障害や後遺症が残った', type: 'accident' },
+            '5': { label: '死亡', desc: '死亡の原因となった（原疾患の自然経過によるものを除く）', type: 'accident' }
+        };
+
+        const categoryLabels = {
+            'fall': '転倒・転落', 'drug': '注射・内服薬剤', 'food': '栄養・食事',
+            'skin': '褥瘡・皮膚損傷', 'trouble': '接遇・患者トラブル', 'other': 'その他'
+        };
+
+        /* ===== 初期化 ===== */
+        let selectedLevel = null;
+        let selectedGender = '';
+        const DRAFT_PREFIX = 'incident_draft_';
+        const DRAFT_EXPIRY_DAYS = 7;
+        let autoSaveTimer = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 影響レベルカード生成（正しい順序で表示）
+            const grid = document.getElementById('level-grid');
+            const levelOrder = ['0', '1', '2', '3a', '3b', '4', '5'];
+            levelOrder.forEach(key => {
+                const def = levelDefs[key];
+                const card = document.createElement('div');
+                card.className = 'level-card';
+                card.dataset.level = key;
+                card.innerHTML = `<div class="lv-num">Lv ${key}</div><div class="lv-label">${def.label}</div>`;
+                card.onclick = () => selectLevel(key);
+                grid.appendChild(card);
+            });
+
+            // 発生日時に現在時刻をセット
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('event-datetime').value = now.toISOString().slice(0, 16);
+
+            // 期限切れの下書きを自動削除
+            cleanExpiredDrafts();
+
+            // 起動画面に下書き一覧を表示
+            renderDraftList();
+        });
+
+        /* ===== トースト通知 ===== */
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2500);
+        }
+
+        /* ===== 起動画面・新規作成 ===== */
+        function showStartScreen() {
+            if (autoSaveTimer) { clearInterval(autoSaveTimer); autoSaveTimer = null; }
+            document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+            document.getElementById('start-screen').classList.add('active');
+            document.getElementById('progress-bar').style.display = 'none';
+            renderDraftList();
+        }
+
+        function startNew() {
+            resetForm();
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('progress-bar').style.display = 'flex';
+            goStep(1);
+            startAutoSave();
+        }
+
+        /* ===== フォームリセット ===== */
+        function resetForm() {
+            selectedLevel = null;
+            selectedGender = '';
+            document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected', 'accident'));
+            document.getElementById('level-hint').style.display = 'none';
+            document.querySelectorAll('.sub-form').forEach(f => f.classList.remove('active'));
+            document.getElementById('good-job-section').classList.remove('active');
+
+            const ids = ['reporter-name', 'reporter-job', 'reporter-dept', 'reporter-exp', 'reporter-dept-exp',
+                'patient-id', 'patient-name', 'patient-age', 'event-place',
+                'event-category', 'fall-fence', 'fall-bar', 'fall-sensor-status',
+                'drug-name', 'drug-phase', 'drug-content',
+                'food-content', 'food-form', 'food-toromi',
+                'skin-type', 'skin-part', 'trouble-type',
+                'other-detail', 'summary-5w1h', 'measures', 'good-job-detail'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = el.tagName === 'SELECT' ? '' : '';
+            });
+
+            document.querySelectorAll('input[name="m4"]').forEach(c => c.checked = false);
+            document.querySelectorAll('input[name="condition"]').forEach(c => c.checked = false);
+            document.querySelectorAll('input[name="fall-sensor"]').forEach(c => c.checked = false);
+            if (document.getElementById('good-job-check')) document.getElementById('good-job-check').checked = false;
+
+            // 発生日時をリセット
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('event-datetime').value = now.toISOString().slice(0, 16);
+        }
+
+        /* ===== フォームデータ収集 ===== */
+        function collectFormData() {
+            return {
+                reporterName: document.getElementById('reporter-name').value,
+                reporterJob: document.getElementById('reporter-job').value,
+                reporterDept: document.getElementById('reporter-dept').value,
+                reporterExp: document.getElementById('reporter-exp').value,
+                reporterDeptExp: document.getElementById('reporter-dept-exp').value,
+                patientId: document.getElementById('patient-id').value,
+                patientName: document.getElementById('patient-name').value,
+                patientAge: document.getElementById('patient-age').value,
+                gender: selectedGender,
+                eventDatetime: document.getElementById('event-datetime').value,
+                eventPlace: document.getElementById('event-place').value,
+                level: selectedLevel,
+                eventCategory: document.getElementById('event-category').value,
+                fallFence: document.getElementById('fall-fence').value,
+                fallBar: document.getElementById('fall-bar').value,
+                fallSensors: Array.from(document.querySelectorAll('input[name="fall-sensor"]:checked')).map(e => e.value),
+                fallSensorStatus: document.getElementById('fall-sensor-status').value,
+                drugName: document.getElementById('drug-name').value,
+                drugPhase: document.getElementById('drug-phase').value,
+                drugContent: document.getElementById('drug-content').value,
+                foodContent: document.getElementById('food-content').value,
+                foodForm: document.getElementById('food-form').value,
+                foodToromi: document.getElementById('food-toromi').value,
+                skinType: document.getElementById('skin-type').value,
+                skinPart: document.getElementById('skin-part').value,
+                troubleType: document.getElementById('trouble-type').value,
+                otherDetail: document.getElementById('other-detail').value,
+                summary5w1h: document.getElementById('summary-5w1h').value,
+                m4: Array.from(document.querySelectorAll('input[name="m4"]:checked')).map(e => e.value),
+                condition: document.querySelector('input[name="condition"]:checked')?.value || '',
+                measures: document.getElementById('measures').value,
+                goodJobCheck: document.getElementById('good-job-check')?.checked || false,
+                goodJobDetail: document.getElementById('good-job-detail').value,
+            };
+        }
+
+        /* ===== フォームデータ復元 ===== */
+        function restoreFormData(data) {
+            resetForm();
+            document.getElementById('reporter-name').value = data.reporterName || '';
+            document.getElementById('reporter-job').value = data.reporterJob || '';
+            document.getElementById('reporter-dept').value = data.reporterDept || '';
+            document.getElementById('reporter-exp').value = data.reporterExp || '';
+            document.getElementById('reporter-dept-exp').value = data.reporterDeptExp || '';
+            document.getElementById('patient-id').value = data.patientId || '';
+            document.getElementById('patient-name').value = data.patientName || '';
+            document.getElementById('patient-age').value = data.patientAge || '';
+            document.getElementById('event-datetime').value = data.eventDatetime || '';
+            document.getElementById('event-place').value = data.eventPlace || '';
+
+            if (data.gender) {
+                selectedGender = data.gender;
+                const idx = data.gender === '男性' ? 0 : 1;
+                document.querySelectorAll('.gender-btn')[idx]?.classList.add('selected');
+            }
+
+            if (data.level) selectLevel(data.level);
+
+            if (data.eventCategory) {
+                document.getElementById('event-category').value = data.eventCategory;
+                showSubForm();
+            }
+
+            document.getElementById('fall-fence').value = data.fallFence || 'なし';
+            document.getElementById('fall-bar').value = data.fallBar || 'なし';
+            (data.fallSensors || []).forEach(sv => {
+                document.querySelectorAll('input[name="fall-sensor"]').forEach(cb => { if (cb.value === sv) cb.checked = true; });
+            });
+            document.getElementById('fall-sensor-status').value = data.fallSensorStatus || '';
+            document.getElementById('drug-name').value = data.drugName || '';
+            document.getElementById('drug-phase').value = data.drugPhase || '';
+            document.getElementById('drug-content').value = data.drugContent || '';
+            document.getElementById('food-content').value = data.foodContent || '';
+            document.getElementById('food-form').value = data.foodForm || '';
+            document.getElementById('food-toromi').value = data.foodToromi || '';
+            document.getElementById('skin-type').value = data.skinType || '';
+            document.getElementById('skin-part').value = data.skinPart || '';
+            document.getElementById('trouble-type').value = data.troubleType || '';
+            document.getElementById('other-detail').value = data.otherDetail || '';
+            document.getElementById('summary-5w1h').value = data.summary5w1h || '';
+            (data.m4 || []).forEach(mv => {
+                document.querySelectorAll('input[name="m4"]').forEach(cb => { if (cb.value === mv) cb.checked = true; });
+            });
+            if (data.condition) {
+                document.querySelectorAll('input[name="condition"]').forEach(rb => { if (rb.value === data.condition) rb.checked = true; });
+            }
+            document.getElementById('measures').value = data.measures || '';
+            if (data.goodJobCheck && document.getElementById('good-job-check')) {
+                document.getElementById('good-job-check').checked = true;
+            }
+            document.getElementById('good-job-detail').value = data.goodJobDetail || '';
+        }
+
+        /* ===== 下書き保存 ===== */
+        function saveDraft() {
+            const data = collectFormData();
+            const now = new Date();
+            const id = DRAFT_PREFIX + now.getTime();
+            const draft = {
+                id: id,
+                savedAt: now.toISOString(),
+                savedAtDisplay: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+                patientName: data.patientName || '未入力',
+                level: data.level || '未選択',
+                category: categoryLabels[data.eventCategory] || '未選択',
+                formData: data
+            };
+            localStorage.setItem(id, JSON.stringify(draft));
+            showToast('✅ 下書きを保存しました');
+        }
+
+        /* ===== 下書き一覧表示 ===== */
+        function renderDraftList() {
+            const list = document.getElementById('draft-list');
+            const drafts = getDrafts();
+
+            if (drafts.length === 0) {
+                list.innerHTML = '<div class="no-drafts">📭 保存された下書きはありません</div>';
+                return;
+            }
+
+            list.innerHTML = drafts.map(d => `
+                <div class="draft-card" onclick="loadDraft('${d.id}')">
+                    <div class="draft-info">
+                        <div class="draft-title">📋 ${d.patientName} - Lv ${d.level} ${d.category}</div>
+                        <div class="draft-meta">保存: ${d.savedAtDisplay}</div>
+                    </div>
+                    <button class="draft-delete" onclick="event.stopPropagation(); deleteDraft('${d.id}')">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        /* ===== 下書き一覧取得 ===== */
+        function getDrafts() {
+            const drafts = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(DRAFT_PREFIX)) {
+                    try { drafts.push(JSON.parse(localStorage.getItem(key))); } catch (e) { }
+                }
+            }
+            return drafts.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+        }
+
+        /* ===== 下書き読み込み ===== */
+        function loadDraft(id) {
+            const raw = localStorage.getItem(id);
+            if (!raw) return;
+            const draft = JSON.parse(raw);
+            restoreFormData(draft.formData);
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('progress-bar').style.display = 'flex';
+            goStep(1);
+            startAutoSave();
+            showToast('📋 下書きを読み込みました');
+        }
+
+        /* ===== 下書き削除 ===== */
+        function deleteDraft(id) {
+            if (confirm('この下書きを削除しますか？')) {
+                localStorage.removeItem(id);
+                renderDraftList();
+                showToast('🗑️ 下書きを削除しました');
+            }
+        }
+
+        function clearAllDrafts() {
+            const drafts = getDrafts();
+            if (drafts.length === 0) return;
+            if (confirm(`${drafts.length}件の下書きをすべて削除しますか？`)) {
+                drafts.forEach(d => localStorage.removeItem(d.id));
+                renderDraftList();
+                showToast('🗑️ すべての下書きを削除しました');
+            }
+        }
+
+        /* ===== 期限切れ自動削除 ===== */
+        function cleanExpiredDrafts() {
+            const now = new Date().getTime();
+            const expiryMs = DRAFT_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(DRAFT_PREFIX)) {
+                    try {
+                        const draft = JSON.parse(localStorage.getItem(key));
+                        if (now - new Date(draft.savedAt).getTime() > expiryMs) {
+                            localStorage.removeItem(key);
+                        }
+                    } catch (e) { localStorage.removeItem(key); }
+                }
+            }
+        }
+
+        /* ===== 自動保存 ===== */
+        function startAutoSave() {
+            if (autoSaveTimer) clearInterval(autoSaveTimer);
+            autoSaveTimer = setInterval(() => {
+                const data = collectFormData();
+                // 何か1つでも入力されていれば自動保存
+                if (data.patientName || data.patientId || data.summary5w1h) {
+                    const now = new Date();
+                    const autoKey = DRAFT_PREFIX + 'auto';
+                    const draft = {
+                        id: autoKey,
+                        savedAt: now.toISOString(),
+                        savedAtDisplay: `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+                        patientName: (data.patientName || '自動保存') + '（自動）',
+                        level: data.level || '未選択',
+                        category: categoryLabels[data.eventCategory] || '未選択',
+                        formData: data
+                    };
+                    localStorage.setItem(autoKey, JSON.stringify(draft));
+                    showToast('✅ 自動保存しました（' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + '）');
+                }
+            }, 30000);
+        }
+
+        /* ===== 性別選択 ===== */
+        function selectGender(el, gender) {
+            document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedGender = gender;
+        }
+
+        /* ===== 影響レベル選択 ===== */
+        function selectLevel(lv) {
+            selectedLevel = lv;
+            const def = levelDefs[lv];
+
+            document.querySelectorAll('.level-card').forEach(c => {
+                c.classList.remove('selected', 'accident');
+                if (c.dataset.level === lv) {
+                    c.classList.add('selected');
+                    if (def.type === 'accident') c.classList.add('accident');
+                }
+            });
+
+            const hint = document.getElementById('level-hint');
+            hint.innerHTML = `<strong>Lv ${lv}（${def.label}）:</strong> ${def.desc}`;
+            hint.style.display = 'block';
+            hint.style.borderLeftColor = def.type === 'accident' ? '#dc3545' : '#ffc107';
+            hint.style.background = def.type === 'accident' ? '#fce8ea' : '#fff8e1';
+
+            // グッドジョブ表示制御
+            const gj = document.getElementById('good-job-section');
+            gj.classList.toggle('active', ['0', '1', '2'].includes(lv));
+        }
+
+        /* ===== 動的サブフォーム表示 ===== */
+        function showSubForm() {
+            document.querySelectorAll('.sub-form').forEach(f => f.classList.remove('active'));
+            const cat = document.getElementById('event-category').value;
+            if (cat) {
+                const sub = document.getElementById('sub-' + cat);
+                if (sub) sub.classList.add('active');
+            }
+        }
+
+        /* ===== ステップ遷移 ===== */
+        function goStep(n) {
+            document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+            document.getElementById('step' + n).classList.add('active');
+
+            document.querySelectorAll('.progress-step').forEach(ps => {
+                const sn = parseInt(ps.dataset.step);
+                ps.classList.remove('active', 'done');
+                if (sn < n) ps.classList.add('done');
+                if (sn === n) ps.classList.add('active');
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* ===== 動的詳細テキスト取得 ===== */
+        function getDynamicDetail() {
+            const cat = document.getElementById('event-category').value;
+            let details = [];
+
+            switch (cat) {
+                case 'fall':
+                    details.push('ベッド柵: ' + document.getElementById('fall-fence').value);
+                    details.push('介助バー: ' + document.getElementById('fall-bar').value);
+                    const sensors = Array.from(document.querySelectorAll('input[name="fall-sensor"]:checked')).map(e => e.value);
+                    if (sensors.length) details.push('センサー: ' + sensors.join('、'));
+                    const ss = document.getElementById('fall-sensor-status').value;
+                    if (ss) details.push('センサー状態: ' + ss);
+                    break;
+                case 'drug':
+                    const dn = document.getElementById('drug-name').value;
+                    if (dn) details.push('薬剤名: ' + dn);
+                    const dp = document.getElementById('drug-phase').value;
+                    if (dp) details.push('局面: ' + dp);
+                    const dc = document.getElementById('drug-content').value;
+                    if (dc) details.push('内容: ' + dc);
+                    break;
+                case 'food':
+                    const fc = document.getElementById('food-content').value;
+                    if (fc) details.push('内容: ' + fc);
+                    const ff = document.getElementById('food-form').value;
+                    if (ff) details.push('食形態: ' + ff);
+                    const ft = document.getElementById('food-toromi').value;
+                    if (ft) details.push('とろみ: ' + ft);
+                    break;
+                case 'skin':
+                    const st = document.getElementById('skin-type').value;
+                    if (st) details.push('種類: ' + st);
+                    const sp = document.getElementById('skin-part').value;
+                    if (sp) details.push('部位: ' + sp);
+                    break;
+                case 'trouble':
+                    const tt = document.getElementById('trouble-type').value;
+                    if (tt) details.push('種類: ' + tt);
+                    break;
+                case 'other':
+                    const od = document.getElementById('other-detail').value;
+                    if (od) details.push(od);
+                    break;
+            }
+            return details.join(' ／ ') || '記載なし';
+        }
+
+        /* ===== PDF出力 ===== */
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const now = new Date();
+            const reportDate = now.toLocaleDateString('ja-JP');
+            const isAccident = selectedLevel && levelDefs[selectedLevel]?.type === 'accident';
+            const catVal = document.getElementById('event-category').value;
+
+            // PDF内容をセット
+            document.getElementById('pdf-rep-date').innerText = reportDate;
+            document.getElementById('pdf-title').innerText = isAccident ? 'アクシデント報告書' : 'インシデント報告書';
+            document.getElementById('pdf-title').style.color = isAccident ? '#dc3545' : '#1a73e8';
+
+            const header = document.getElementById('pdf-header');
+            header.style.borderBottomColor = isAccident ? '#dc3545' : '#000';
+
+            // アクシデント時セクションヘッダー色変更
+            document.querySelectorAll('.pdf-section h4').forEach(h4 => {
+                h4.style.background = isAccident ? '#fce8ea' : '#f0f0f0';
+            });
+
+            document.getElementById('pdf-job').innerText = document.getElementById('reporter-job').value || '未入力';
+            document.getElementById('pdf-dept').innerText = document.getElementById('reporter-dept').value || '未入力';
+            document.getElementById('pdf-exp').innerText = document.getElementById('reporter-exp').value || '未入力';
+            document.getElementById('pdf-dept-exp').innerText = document.getElementById('reporter-dept-exp').value || '未入力';
+
+            document.getElementById('pdf-pid').innerText = document.getElementById('patient-id').value || '未入力';
+            document.getElementById('pdf-pname').innerText = document.getElementById('patient-name').value || '未入力';
+            document.getElementById('pdf-gender').innerText = selectedGender || '未選択';
+            document.getElementById('pdf-age').innerText = document.getElementById('patient-age').value || '未選択';
+            document.getElementById('pdf-datetime').innerText = document.getElementById('event-datetime').value.replace('T', ' ') || '未入力';
+            document.getElementById('pdf-place').innerText = document.getElementById('event-place').value || '未入力';
+
+            document.getElementById('pdf-level').innerText = selectedLevel || '未選択';
+            document.getElementById('pdf-category').innerText = categoryLabels[catVal] || '未選択';
+            document.getElementById('pdf-level-def').innerText = selectedLevel ? levelDefs[selectedLevel].desc : '';
+
+            document.getElementById('pdf-dynamic-detail').innerText = getDynamicDetail();
+            document.getElementById('pdf-summary').innerText = document.getElementById('summary-5w1h').value || '記載なし';
+
+            const m4 = Array.from(document.querySelectorAll('input[name="m4"]:checked')).map(e => e.value);
+            document.getElementById('pdf-m4-list').innerText = m4.join('、') || '特になし';
+            const cond = document.querySelector('input[name="condition"]:checked')?.value || '未選択';
+            document.getElementById('pdf-condition').innerText = cond;
+            document.getElementById('pdf-measures').innerText = document.getElementById('measures').value || '記載なし';
+
+            // グッドジョブ
+            const gjSec = document.getElementById('pdf-sec-goodjob');
+            if (document.getElementById('good-job-check')?.checked) {
+                gjSec.style.display = 'block';
+                document.getElementById('pdf-goodjob').innerText = document.getElementById('good-job-detail').value || '記載なし';
+            } else {
+                gjSec.style.display = 'none';
+            }
+
+            // 署名
+            const rName = document.getElementById('reporter-name').value || '';
+            const job = document.getElementById('reporter-job').value || '';
+            const dept = document.getElementById('reporter-dept').value || '';
+            document.getElementById('pdf-sig-reporter').innerText = dept + ' ' + job + '\n' + rName;
+
+            // PDF生成
+            const canvas = await html2canvas(document.getElementById('pdf-content'), { scale: 2, useCORS: true });
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgW = 210;
+            const imgH = (canvas.height * imgW) / canvas.width;
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgW, imgH);
+
+            // ファイル名: 日付_患者氏名_報告書.pdf
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${y}${m}${d}`;
+            const pName = document.getElementById('patient-name').value || 'unknown';
+            const fileName = `${dateStr}_${pName}_報告書.pdf`;
+
+            // 手動ダウンロード（日本語ファイル名対応）
+            const blob = pdf.output('blob');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>
