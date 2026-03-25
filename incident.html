@@ -699,12 +699,26 @@
 
         .pdf-sig-table td {
             border: 1px solid #000;
-            width: 33.3%;
+            width: 20%;
             height: 55px;
             text-align: center;
             vertical-align: top;
             font-size: 10px;
             padding: 3px;
+        }
+
+        /* ===== 印刷・フォールバック ===== */
+        @media print {
+            body > * { display: none !important; }
+            #pdf-content {
+                display: block !important;
+                position: static !important;
+                visibility: visible !important;
+                width: 210mm;
+                margin: 0;
+                padding: 15px 20px;
+                left: 0;
+            }
         }
 
         /* ===== レスポンシブ ===== */
@@ -725,6 +739,12 @@
 </head>
 
 <body>
+
+<div style="background:#007a5a;padding:8px 16px;">
+  <a href="../hospital_portal/index.html" style="color:rgba(255,255,255,0.8);font-size:0.8rem;text-decoration:none;">
+    ← 診療支援ポータルへ戻る
+  </a>
+</div>
 
     <div class="container">
         <!-- ヘッダー -->
@@ -1211,8 +1231,10 @@
         <table class="pdf-sig-table">
             <tr>
                 <td>報告者<br><br><span id="pdf-sig-reporter"></span></td>
-                <td>職場長 検印<br><br></td>
-                <td>安全管理者 検印<br><br></td>
+                <td>所属上長 検印<br><br></td>
+                <td>看護部長 検印<br><br></td>
+                <td>院長 検印<br><br></td>
+                <td>理事長 検印<br><br></td>
             </tr>
         </table>
         <div style="text-align:right; font-size:10px; margin-top:8px; color:#555;">医療法人広正会 井上病院</div>
@@ -1652,6 +1674,11 @@
 
         /* ===== PDF出力 ===== */
         async function generatePDF() {
+            const btn = document.querySelector('.btn-success');
+            const origText = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+
+            try {
             const { jsPDF } = window.jspdf;
             const now = new Date();
             const reportDate = now.toLocaleDateString('ja-JP');
@@ -1712,7 +1739,13 @@
             document.getElementById('pdf-sig-reporter').innerText = dept + ' ' + job + '\n' + rName;
 
             // PDF生成
-            const canvas = await html2canvas(document.getElementById('pdf-content'), { scale: 2, useCORS: true });
+            const canvas = await html2canvas(document.getElementById('pdf-content'), {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                imageTimeout: 0,
+            });
             const pdf = new jsPDF('p', 'mm', 'a4');
             const imgW = 210;
             const imgH = (canvas.height * imgW) / canvas.width;
@@ -1728,14 +1761,29 @@
 
             // 手動ダウンロード（日本語ファイル名対応）
             const blob = pdf.output('blob');
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                // 旧Edge (EdgeHTML) 対応
+                window.navigator.msSaveOrOpenBlob(blob, fileName);
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            showToast('PDF出力が完了しました');
+
+            } catch (e) {
+                console.error('PDF生成エラー:', e);
+                if (confirm('PDF生成に失敗しました。\nブラウザの印刷機能でPDFを保存しますか？\n（印刷ダイアログで「PDFに保存」を選択してください）')) {
+                    window.print();
+                }
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = origText; }
+            }
         }
     </script>
 </body>
