@@ -803,15 +803,18 @@
         <div class="step-content" id="step3">
             <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
             <div class="section-title"><span class="icon">📋</span> 管理計画</div>
+            <div class="form-group"><label>寝具</label>
+                <select id="plan-mattress">
+                    <option>エアーマット(NEXUS-R)</option>
+                    <option>エアーマット(NEXUS-iB)</option>
+                    <option>マットレス(ディンプルマットレス)</option>
+                    <option>標準マットレス</option>
+                    <option>静止型ウレタン</option>
+                    <option>圧切替型エア</option>
+                    <option>自動体変付エア</option>
+                </select>
+            </div>
             <div class="form-row">
-                <div class="form-group"><label>寝具</label>
-                    <select id="plan-mattress">
-                        <option>標準マットレス</option>
-                        <option>静止型ウレタン</option>
-                        <option>圧切替型エア</option>
-                        <option>自動体変付エア</option>
-                    </select>
-                </div>
                 <div class="form-group"><label>体位変換</label>
                     <select id="plan-positioning">
                         <option>制限なし</option>
@@ -819,8 +822,6 @@
                         <option>2時間ごと</option>
                     </select>
                 </div>
-            </div>
-            <div class="form-row">
                 <div class="form-group"><label>栄養管理</label>
                     <select id="plan-nutrition">
                         <option>通常食</option>
@@ -829,6 +830,8 @@
                         <option>経管栄養</option>
                     </select>
                 </div>
+            </div>
+            <div class="form-row">
                 <div class="form-group"><label>スキンケア</label>
                     <select id="plan-skincare">
                         <option>通常ケア</option>
