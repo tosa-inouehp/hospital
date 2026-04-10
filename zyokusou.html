@@ -245,12 +245,17 @@
         /* ===== カード型選択 ===== */
         .radio-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 6px;
+            align-items: stretch;
+        }
+
+        .radio-grid--many {
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
         }
 
         .radio-card {
-            padding: 10px 6px;
+            padding: 8px 6px;
             border: 2px solid var(--border);
             border-radius: 10px;
             text-align: center;
@@ -259,6 +264,9 @@
             background: #fafbfc;
             font-size: 0.78rem;
             line-height: 1.3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .radio-card:hover {
@@ -282,6 +290,58 @@
             font-size: 0.65rem;
             margin-top: 2px;
             opacity: 0.85;
+        }
+
+        .radio-card .card-desc {
+            font-size: 0.58rem;
+            margin-top: 4px;
+            opacity: 0.75;
+            line-height: 1.4;
+            text-align: left;
+            padding: 0 2px;
+        }
+
+        .radio-card.selected .card-desc {
+            opacity: 0.9;
+        }
+
+        .braden-item .item-note {
+            font-size: 0.68rem;
+            color: var(--text-light);
+            margin-bottom: 6px;
+            padding-left: 2px;
+        }
+
+        /* ===== 部位カード ===== */
+        .site-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
+        }
+
+        .site-card {
+            padding: 12px 8px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            background: #fafbfc;
+            font-size: 0.85rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .site-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .site-card.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 3px 12px rgba(26, 115, 232, 0.3);
         }
 
         /* ===== スコアボックス ===== */
@@ -674,7 +734,7 @@
 
         .pdf-photo-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr;
             gap: 10px;
             margin-top: 10px;
         }
@@ -682,7 +742,7 @@
         .pdf-photo-grid img {
             width: 100%;
             height: auto;
-            max-height: 300px;
+            max-height: 380px;
             object-fit: contain;
             background: #fafafa;
             border: 1px solid #ddd;
@@ -866,29 +926,32 @@
         <div class="step-content" id="step4">
             <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
             <div class="section-title"><span class="icon">🔬</span> DESIGN-R® 2020 評価</div>
-            <div class="form-group"><label>褥瘡部位</label>
-                <select id="ulcer-site" onchange="toggleSiteOther()">
-                    <option value="">選択してください</option>
-                    <option>仙骨部</option>
-                    <option>尾骨部</option>
-                    <option>踵部（右）</option>
-                    <option>踵部（左）</option>
-                    <option>大転子部（右）</option>
-                    <option>大転子部（左）</option>
-                    <option>坐骨部</option>
-                    <option>肩甲骨部</option>
-                    <option>後頭部</option>
-                    <option>その他</option>
-                </select>
+            <div class="form-group">
+                <label>褥瘡部位 <span class="req">*必須</span></label>
+                <div class="site-grid" id="site-grid">
+                    <div class="site-card" onclick="selectSite(this, '仙骨部')">仙骨部</div>
+                    <div class="site-card" onclick="selectSite(this, '尾骨部')">尾骨部</div>
+                    <div class="site-card" onclick="selectSite(this, '踵部（右）')">踵部（右）</div>
+                    <div class="site-card" onclick="selectSite(this, '踵部（左）')">踵部（左）</div>
+                    <div class="site-card" onclick="selectSite(this, '大転子部（右）')">大転子部（右）</div>
+                    <div class="site-card" onclick="selectSite(this, '大転子部（左）')">大転子部（左）</div>
+                    <div class="site-card" onclick="selectSite(this, '坐骨部')">坐骨部</div>
+                    <div class="site-card" onclick="selectSite(this, '肩甲骨部')">肩甲骨部</div>
+                    <div class="site-card" onclick="selectSite(this, '後頭部')">後頭部</div>
+                    <div class="site-card" onclick="selectSite(this, 'その他')">その他</div>
+                </div>
+                <input type="hidden" id="ulcer-site" value="">
             </div>
-            <div class="form-group" id="site-other-group" style="display:none;"><label>部位（自由記入）</label><input
-                    type="text" id="ulcer-site-other" placeholder="部位を入力してください"></div>
+            <div class="form-group" id="site-other-group" style="display:none;">
+                <label>部位（自由記入）</label>
+                <input type="text" id="ulcer-site-other" placeholder="部位を入力してください">
+            </div>
             <div id="design-r-form"></div>
             <div class="score-box score-low" id="design-score-box">DESIGN-R Score: <span id="design-total">0</span>点
             </div>
             <div class="btn-group">
                 <button class="btn btn-secondary" onclick="goStep(3)">◀ 戻る</button>
-                <button class="btn btn-primary" onclick="goStep(5)">次へ ▶ 写真・出力</button>
+                <button class="btn btn-primary" onclick="goToStep5()">次へ ▶ 写真・出力</button>
             </div>
         </div>
 
@@ -897,8 +960,9 @@
             <button class="back-top-btn" onclick="showStartScreen()">🏠 トップに戻る</button>
             <div class="section-title"><span class="icon">📸</span> 患部写真</div>
             <div class="form-group">
-                <label>写真アップロード（最大4枚）</label>
-                <input type="file" accept="image/*" capture="camera" multiple onchange="handleImages(this)"
+                <label>写真アップロード（最大2枚）</label>
+                <p style="font-size:0.78rem; color:var(--warning); margin-bottom:8px; font-weight:600;">📱 写真は横向きで撮影してアップロードしてください</p>
+                <input type="file" accept="image/*" multiple onchange="handleImages(this)"
                     style="padding:8px;">
                 <div id="preview-container" class="preview-grid"></div>
             </div>
@@ -988,22 +1052,95 @@
     <script>
         /* ===== データ定義 ===== */
         const bradenItems = [
-            { id: 'sensory', name: '知覚の認知', opts: [{ v: 1, l: '1. まったく知覚なし' }, { v: 2, l: '2. 重度の障害' }, { v: 3, l: '3. 軽度の障害' }, { v: 4, l: '4. 障害なし' }] },
-            { id: 'moisture', name: '湿潤', opts: [{ v: 1, l: '1. 常に湿っている' }, { v: 2, l: '2. たいてい湿潤' }, { v: 3, l: '3. 時々湿潤' }, { v: 4, l: '4. ほとんど乾燥' }] },
-            { id: 'activity', name: '活動性', opts: [{ v: 1, l: '1. 臥床' }, { v: 2, l: '2. 座位可能' }, { v: 3, l: '3. 時々歩行' }, { v: 4, l: '4. 歩行可能' }] },
-            { id: 'mobility', name: '可動性', opts: [{ v: 1, l: '1. まったく体動なし' }, { v: 2, l: '2. 非常に限定' }, { v: 3, l: '3. やや限定' }, { v: 4, l: '4. 自由に体動' }] },
-            { id: 'nutrition', name: '栄養状態', opts: [{ v: 1, l: '1. 不良' }, { v: 2, l: '2. やや不良' }, { v: 3, l: '3. 良好' }, { v: 4, l: '4. 非常に良好' }] },
-            { id: 'friction', name: '摩擦とずれ', opts: [{ v: 1, l: '1. 問題あり' }, { v: 2, l: '2. 潜在的に問題' }, { v: 3, l: '3. 問題なし' }] }
+            { id: 'sensory', name: '知覚の認知', opts: [
+                { v: 1, l: '1. まったく知覚なし', d: '痛み刺激に反応なし。広範な感覚障害' },
+                { v: 2, l: '2. 重度の障害',       d: '呼びかけに反応。不快感を伝えられない。体の半分以上に感覚障害' },
+                { v: 3, l: '3. 軽度の障害',       d: '呼びかけに反応。感覚障害は片側肢' },
+                { v: 4, l: '4. 障害なし',         d: '指示に従える。感覚障害なし' }
+            ]},
+            { id: 'moisture', name: '湿潤', opts: [
+                { v: 1, l: '1. 常に湿っている', d: '動かすたびに皮膚が湿潤' },
+                { v: 2, l: '2. たいてい湿潤',   d: '頻繁にリネン交換が必要' },
+                { v: 3, l: '3. 時々湿潤',       d: '1日1回程度の追加リネン交換' },
+                { v: 4, l: '4. ほとんど乾燥',   d: '定期交換のみで十分' }
+            ]},
+            { id: 'activity', name: '活動性', opts: [
+                { v: 1, l: '1. 臥床',     d: 'ベッド上のみ' },
+                { v: 2, l: '2. 座位可能', d: 'ほとんど歩けない。車椅子で移乗' },
+                { v: 3, l: '3. 時々歩行', d: '日中時々歩く。大半はベッド/椅子' },
+                { v: 4, l: '4. 歩行可能', d: '日中室外を歩く' }
+            ]},
+            { id: 'mobility', name: '可動性', opts: [
+                { v: 1, l: '1. まったく体動なし', d: '体位変換が全介助' },
+                { v: 2, l: '2. 非常に限定',       d: '時々自力で体動するが頻繁には無理' },
+                { v: 3, l: '3. やや限定',         d: '頻繁ではないが自力で体動できる' },
+                { v: 4, l: '4. 自由に体動',       d: '自力で体位変換できる' }
+            ]},
+            { id: 'nutrition', name: '栄養状態', opts: [
+                { v: 1, l: '1. 不良',       d: '食事1/3以下。蛋白2食分以下' },
+                { v: 2, l: '2. やや不良',   d: '食事1/2以下。蛋白3食分未満' },
+                { v: 3, l: '3. 良好',       d: '大部分摂取。蛋白4食分' },
+                { v: 4, l: '4. 非常に良好', d: '全量摂取。補食あり' }
+            ]},
+            { id: 'friction', name: '摩擦とずれ', opts: [
+                { v: 1, l: '1. 問題あり',     d: '移動に最大介助。シーツにすれる' },
+                { v: 2, l: '2. 潜在的に問題', d: '弱々しく移動。最小限の介助' },
+                { v: 3, l: '3. 問題なし',     d: '自力移動。体を持ち上げられる' }
+            ]}
         ];
 
         const designRItems = [
-            { id: 'D', name: 'D（深さ）', opts: [{ v: 0, l: 'd0: なし（発赤）' }, { v: 1, l: 'd1: 真皮まで' }, { v: 3, l: 'D3: 皮下組織まで' }, { v: 4, l: 'D4: 筋・骨まで' }, { v: 0, l: 'DU: 判定不能' }] },
-            { id: 'E', name: 'E（滲出液）', opts: [{ v: 0, l: 'e0: なし' }, { v: 3, l: 'e3: 少量' }, { v: 6, l: 'E6: 中等量' }, { v: 12, l: 'E12: 多量' }] },
-            { id: 'S', name: 'S（大きさ）', opts: [{ v: 0, l: 's0: 0cm²' }, { v: 3, l: 's3: <4' }, { v: 6, l: 'S6: 4-16' }, { v: 8, l: 'S8: 16-36' }, { v: 12, l: 'S12: 36-64' }, { v: 15, l: 'S15: >64' }] },
-            { id: 'I', name: 'I（炎症/感染）', opts: [{ v: 0, l: 'i0: なし' }, { v: 1, l: 'i1: 局所' }, { v: 3, l: 'I3: 全身' }, { v: 9, l: 'I9: 全身(重症)' }] },
-            { id: 'G', name: 'G（肉芽組織）', opts: [{ v: 0, l: 'g0: 創閉鎖/治癒' }, { v: 1, l: 'g1: >50%良性肉芽' }, { v: 3, l: 'G3: <50%良性肉芽' }, { v: 6, l: 'G6: なし' }] },
-            { id: 'N', name: 'N（壊死組織）', opts: [{ v: 0, l: 'n0: なし' }, { v: 3, l: 'n3: 柔らかい壊死' }, { v: 6, l: 'N6: 硬い壊死' }] },
-            { id: 'P', name: 'P（ポケット）', opts: [{ v: 0, l: 'p0: なし' }, { v: 6, l: 'p6: <4' }, { v: 9, l: 'P9: 4-16' }, { v: 12, l: 'P12: 16-36' }, { v: 24, l: 'P24: >36' }] }
+            { id: 'D', name: 'D（深さ）', opts: [
+                { v: 0, l: 'd0: 皮膚損傷なし',     d: '発赤なし' },
+                { v: 1, l: 'd1: 持続する発赤',     d: '圧迫解除後も30分以上持続する発赤' },
+                { v: 2, l: 'd2: 真皮まで',         d: '水疱・びらん・浅い潰瘍' },
+                { v: 3, l: 'D3: 皮下組織まで',     d: '皮下脂肪層までの深い潰瘍' },
+                { v: 4, l: 'D4: 皮下組織を超える', d: '筋肉・骨・腱の露出' },
+                { v: 5, l: 'D5: 関節腔・体腔まで', d: '関節内・体腔（腹腔など）まで達する' },
+                { v: 0, l: 'DU: 判定不能',         d: '壊死組織で創底が覆われ判定不能' }
+            ]},
+            { id: 'E', name: 'E（滲出液）', opts: [
+                { v: 0, l: 'e0: なし' },
+                { v: 1, l: 'e1: 少量',   d: 'ドレッシング交換不要の少量' },
+                { v: 3, l: 'E3: 中等量', d: '1日1回交換が必要' },
+                { v: 6, l: 'E6: 多量',   d: '1日2回以上交換が必要' }
+            ]},
+            { id: 'S', name: 'S（大きさ）', note: '長径×短径(cm)で算出', opts: [
+                { v: 0,  l: 's0: 0cm²' },
+                { v: 3,  l: 's3: <4cm²' },
+                { v: 6,  l: 'S6: 4-16cm²' },
+                { v: 8,  l: 'S8: 16-36cm²' },
+                { v: 9,  l: 's9: 36-64cm²' },
+                { v: 12, l: 'S12: 64-100cm²' },
+                { v: 15, l: 'S15: ≥100cm²' }
+            ]},
+            { id: 'I', name: 'I（炎症/感染）', opts: [
+                { v: 0, l: 'i0: 炎症徴候なし' },
+                { v: 1, l: 'i1: 局所の炎症徴候',   d: '発赤・腫脹・熱感・疼痛' },
+                { v: 3, l: 'i3C: 臨界的定着疑い', d: '臭気増加・浸出液増加・創面の停滞' },
+                { v: 3, l: 'I3: 局所の明らかな感染', d: '膿・悪臭など明らかな感染' },
+                { v: 9, l: 'I9: 全身的影響あり',   d: '発熱など全身症状' }
+            ]},
+            { id: 'G', name: 'G（肉芽組織）', opts: [
+                { v: 0, l: 'g0: 創閉鎖/治癒',   d: '創が完全に閉鎖/治癒' },
+                { v: 1, l: 'g1: ≥90%良性肉芽', d: '鮮紅色の良好な肉芽が90%以上' },
+                { v: 3, l: 'G3: 50〜90%未満',   d: '良性肉芽50〜90%未満' },
+                { v: 4, l: 'G4: 10〜50%未満',   d: '良性肉芽10〜50%未満' },
+                { v: 5, l: 'G5: 10%未満',       d: '良性肉芽10%未満' },
+                { v: 6, l: 'G6: なし',           d: '肉芽が全く形成されていない' }
+            ]},
+            { id: 'N', name: 'N（壊死組織）', opts: [
+                { v: 0, l: 'n0: なし' },
+                { v: 3, l: 'n3: 柔らかい壊死', d: '黄色〜白色の軟らかい壊死組織' },
+                { v: 6, l: 'N6: 硬い壊死',     d: '黒色の硬い壊死組織（痂皮）' }
+            ]},
+            { id: 'P', name: 'P（ポケット）', note: '長径×短径(cm)で算出', opts: [
+                { v: 0,  l: 'p0: なし' },
+                { v: 6,  l: 'p6: <4cm²' },
+                { v: 9,  l: 'P9: 4-16cm²' },
+                { v: 12, l: 'P12: 16-36cm²' },
+                { v: 24, l: 'P24: >36cm²' }
+            ]}
         ];
 
         let selectedImages = [];
@@ -1033,7 +1170,8 @@
                 item.opts.forEach((opt, i) => {
                     const card = document.createElement('div');
                     card.className = 'radio-card';
-                    card.innerHTML = `<div class="card-score">${opt.v}</div><div class="card-label">${opt.l.split('. ')[1] || opt.l}</div>`;
+                    const descHtml = opt.d ? `<div class="card-desc">${opt.d}</div>` : '';
+                    card.innerHTML = `<div class="card-score">${opt.v}</div><div class="card-label">${opt.l.split('. ')[1] || opt.l}</div>${descHtml}`;
                     card.onclick = () => {
                         grid.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
                         card.classList.add('selected');
@@ -1052,12 +1190,14 @@
             designRItems.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'braden-item';
-                div.innerHTML = `<div class="item-title">${item.name}</div><div class="radio-grid" id="design-${item.id}"></div>`;
+                const noteHtml = item.note ? `<div class="item-note">📐 ${item.note}</div>` : '';
+                div.innerHTML = `<div class="item-title">${item.name}</div>${noteHtml}<div class="radio-grid${item.opts.length >= 6 ? ' radio-grid--many' : ''}" id="design-${item.id}"></div>`;
                 const grid = div.querySelector('.radio-grid');
                 item.opts.forEach((opt, i) => {
                     const card = document.createElement('div');
                     card.className = 'radio-card';
-                    card.innerHTML = `<div class="card-score">${opt.l.split(':')[0]}</div><div class="card-label">${opt.l.split(': ')[1] || ''}</div>`;
+                    const descHtml = opt.d ? `<div class="card-desc">${opt.d}</div>` : '';
+                    card.innerHTML = `<div class="card-score">${opt.l.split(':')[0]}</div><div class="card-label">${opt.l.split(': ')[1] || ''}</div>${descHtml}`;
                     card.onclick = () => {
                         grid.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
                         card.classList.add('selected');
@@ -1118,7 +1258,22 @@
 
         function goToStep4() { document.getElementById('has-ulcer').value === 'yes' ? goStep(4) : goStep(5); }
         function backFromStep5() { document.getElementById('has-ulcer').value === 'yes' ? goStep(4) : goStep(3); }
-        function toggleSiteOther() { document.getElementById('site-other-group').style.display = document.getElementById('ulcer-site').value === 'その他' ? 'block' : 'none'; }
+        function selectSite(card, siteName) {
+            document.querySelectorAll('#site-grid .site-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            document.getElementById('ulcer-site').value = siteName;
+            document.getElementById('site-other-group').style.display = siteName === 'その他' ? 'block' : 'none';
+            if (siteName !== 'その他') document.getElementById('ulcer-site-other').value = '';
+        }
+
+        function goToStep5() {
+            if (!document.getElementById('ulcer-site').value) {
+                showToast('⚠️ 褥瘡部位を選択してください');
+                document.getElementById('site-grid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            goStep(5);
+        }
 
         /* ===== 起動画面 ===== */
         function showStartScreen() {
@@ -1140,9 +1295,13 @@
         function resetForm() {
             bradenScores = {}; designRScores = {}; selectedImages = [];
             document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
-            ['patient-id', 'patient-name', 'reporter-name', 'reporter-job', 'reporter-dept', 'wound-observation', 'treatment-plan', 'ulcer-site'].forEach(id => {
+            document.querySelectorAll('#site-grid .site-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('ulcer-site').value = '';
+            document.getElementById('site-other-group').style.display = 'none';
+            document.getElementById('ulcer-site-other').value = '';
+            ['patient-id', 'patient-name', 'reporter-name', 'reporter-job', 'reporter-dept', 'wound-observation', 'treatment-plan'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.value = el.tagName === 'SELECT' ? '' : '';
+                if (el) el.value = '';
             });
             document.getElementById('plan-mattress').value = '標準マットレス';
             document.getElementById('plan-positioning').value = '制限なし';
@@ -1180,7 +1339,7 @@
 
         function handleImages(input) {
             if (input.files) {
-                const remaining = 4 - selectedImages.length;
+                const remaining = 2 - selectedImages.length;
                 if (remaining <= 0) return;
 
                 let loadedCount = 0;
@@ -1263,7 +1422,14 @@
             document.getElementById('plan-nutrition').value = data.nutrition || '通常食';
             document.getElementById('plan-skincare').value = data.skincare || '通常ケア';
             document.getElementById('has-ulcer').value = data.hasUlcer || 'no';
-            document.getElementById('ulcer-site').value = data.ulcerSite || '';
+            const siteVal = data.ulcerSite || '';
+            document.getElementById('ulcer-site').value = siteVal;
+            if (siteVal) {
+                document.querySelectorAll('#site-grid .site-card').forEach(c => {
+                    if (c.textContent === siteVal) c.classList.add('selected');
+                });
+                if (siteVal === 'その他') document.getElementById('site-other-group').style.display = 'block';
+            }
             document.getElementById('wound-observation').value = data.observation || '';
             document.getElementById('treatment-plan').value = data.treatmentPlan || '';
 
@@ -1451,15 +1617,14 @@
                 }
             }
 
-            // 2ページ目以降: 写真を縦横比維持で直接描画
+            // 2ページ目: 写真を縦に2枚・フル幅で描画
             if (selectedImages.length > 0) {
                 pdf.addPage();
 
                 const margin = 10;
-                const gapX = 8;
-                const gapY = 8;
-                const colWidth = (pageWidth - margin * 2 - gapX) / 2;
-                let curX = margin;
+                const gapY = 10;
+                const availWidth = pageWidth - margin * 2;
+                const maxHeightPerPhoto = (pageHeight - margin * 2 - gapY) / 2;
                 let curY = margin;
 
                 for (let idx = 0; idx < selectedImages.length; idx++) {
@@ -1473,27 +1638,20 @@
                     });
 
                     const aspectRatio = imgEl.height / imgEl.width;
-                    const drawWidth = colWidth;
-                    const drawHeight = colWidth * aspectRatio;
+                    let drawWidth = availWidth;
+                    let drawHeight = drawWidth * aspectRatio;
 
-                    // ページに収まらない場合は次のページへ
-                    if (curY + drawHeight > pageHeight - margin) {
-                        pdf.addPage();
-                        curY = 15;
-                        curX = margin;
+                    // 高さが上限を超える場合は縮小（横向き写真でも確実に2枚収まるよう）
+                    if (drawHeight > maxHeightPerPhoto) {
+                        drawHeight = maxHeightPerPhoto;
+                        drawWidth = drawHeight / aspectRatio;
                     }
 
-                    pdf.addImage(src, 'JPEG', curX, curY, drawWidth, drawHeight);
+                    // 水平中央揃え
+                    const offsetX = margin + (availWidth - drawWidth) / 2;
+                    pdf.addImage(src, 'JPEG', offsetX, curY, drawWidth, drawHeight);
 
-                    // 2列レイアウト
-                    if (idx % 2 === 0) {
-                        // 次の画像は右側
-                        curX = margin + colWidth + gapX;
-                    } else {
-                        // 次の行に移動（2枚の中で高い方に揃える）
-                        curX = margin;
-                        curY += drawHeight + gapY;
-                    }
+                    curY += maxHeightPerPhoto + gapY;
                 }
             }
 
