@@ -852,6 +852,55 @@
             font-size: 10px;
             padding: 3px;
         }
+
+        .design-r-detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            margin-top: 6px;
+        }
+
+        .design-r-detail-table th {
+            background: #e8f0f8;
+            padding: 3px 5px;
+            border: 1px solid #ccc;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .design-r-detail-table td {
+            padding: 3px 5px;
+            border: 1px solid #ccc;
+            vertical-align: top;
+        }
+
+        .design-r-detail-table .dr-score {
+            text-align: right;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .design-r-detail-table .dr-code {
+            font-weight: 700;
+            font-family: monospace;
+            white-space: nowrap;
+        }
+
+        .design-r-detail-table .dr-total td {
+            background: #e8f0f8;
+            font-weight: 700;
+        }
+
+        .design-r-detail-table .dr-depth td {
+            color: #666;
+        }
+
+        .dr-desc {
+            font-size: 8px;
+            color: #555;
+            display: block;
+            margin-top: 1px;
+        }
     </style>
 </head>
 
@@ -1162,10 +1211,18 @@
             <p>栄養管理: <span id="pdf-nutrition"></span> / スキンケア: <span id="pdf-skincare"></span></p>
         </div>
         <div id="pdf-ulcer-section" class="pdf-section" style="display:none;">
-            <h4>■ DESIGN-R® 2020</h4>
-            <p>部位: <span id="pdf-site"></span> / Score: <strong><span id="pdf-design-score"></span></strong> (深さ: <span
-                    id="pdf-depth"></span>)</p>
-            <p>内訳: <span id="pdf-design-detail" style="font-family:monospace;"></span></p>
+            <h4>■ DESIGN-R® 2020　部位: <span id="pdf-site"></span> / 合計スコア: <strong><span id="pdf-design-score"></span>点</strong></h4>
+            <table class="design-r-detail-table" id="pdf-design-table">
+                <thead>
+                    <tr>
+                        <th style="width:80px;">項目</th>
+                        <th style="width:45px;">評価</th>
+                        <th>内容・臨床基準</th>
+                        <th style="width:38px;text-align:right;">点数</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-design-tbody"></tbody>
+            </table>
         </div>
         <div class="pdf-section" id="pdf-photo-section">
             <h4 style="text-align:center;">■ 患部写真</h4>
@@ -1711,9 +1768,40 @@
                 const siteVal = document.getElementById('ulcer-site').value;
                 document.getElementById('pdf-site').innerText = siteVal === 'その他' ? (document.getElementById('ulcer-site-other').value || 'その他') : (siteVal || '—');
                 document.getElementById('pdf-design-score').innerText = dData.total;
-                const dp = designRScores['D'];
-                document.getElementById('pdf-depth').innerText = dp ? dp.l.split(':')[0] : '未';
-                document.getElementById('pdf-design-detail').innerText = dData.detail;
+
+                // DESIGN-R詳細テーブルを生成
+                const tbody = document.getElementById('pdf-design-tbody');
+                let tbodyHtml = '';
+                designRItems.forEach(item => {
+                    const score = designRScores[item.id];
+                    const isDepth = item.id === 'D';
+                    const rowClass = isDepth ? 'dr-depth' : '';
+                    if (score) {
+                        const code = score.l.split(':')[0];
+                        const label = score.l.split(': ')[1] || '';
+                        const opt = item.opts.find(o => o.l === score.l);
+                        const desc = opt && opt.d ? `<span class="dr-desc">${opt.d}</span>` : '';
+                        const scoreText = isDepth ? '<span style="color:#888;">参照のみ</span>' : `${score.v}点`;
+                        tbodyHtml += `<tr class="${rowClass}">
+                            <td>${item.name}</td>
+                            <td class="dr-code">${code}</td>
+                            <td>${label}${desc}</td>
+                            <td class="dr-score">${scoreText}</td>
+                        </tr>`;
+                    } else {
+                        tbodyHtml += `<tr class="${rowClass}" style="color:#aaa;">
+                            <td>${item.name}</td>
+                            <td class="dr-code">—</td>
+                            <td>未評価</td>
+                            <td class="dr-score">—</td>
+                        </tr>`;
+                    }
+                });
+                tbodyHtml += `<tr class="dr-total">
+                    <td colspan="3" style="text-align:right;">合計スコア（D・深さは対象外）</td>
+                    <td class="dr-score">${dData.total}点</td>
+                </tr>`;
+                tbody.innerHTML = tbodyHtml;
             } else {
                 document.getElementById('pdf-ulcer-section').style.display = 'none';
             }
