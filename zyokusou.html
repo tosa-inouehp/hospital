@@ -943,12 +943,23 @@
             <div class="changelog-section">
                 <div class="changelog-toggle" onclick="toggleChangelog()">
                     <h4>📋 バージョン情報・更新履歴</h4>
-                    <span class="changelog-badge">v1.3.0</span>
+                    <span class="changelog-badge">v1.4.0</span>
                 </div>
                 <div class="changelog-body" id="changelog-body">
                     <div class="changelog-version">
                         <div class="cv-header">
-                            <span class="cv-tag latest">v1.3.0</span>
+                            <span class="cv-tag latest">v1.4.0</span>
+                            <span class="cv-date">2026-04-11</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>PDF の DESIGN-R 内訳を項目名・評価コード・臨床基準・点数の表形式に変更</li>
+                            <li>STEP1（患者情報）の必須項目バリデーションを追加</li>
+                            <li>褥瘡部位「その他」選択時の自由記入チェックを追加</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.3.0</span>
                             <span class="cv-date">2026-04-11</span>
                         </div>
                         <ul class="cv-items">
@@ -1035,7 +1046,7 @@
                 </div>
             </div>
             <div class="btn-group">
-                <button class="btn btn-primary" onclick="goStep(2)">次へ ▶ リスク評価</button>
+                <button class="btn btn-primary" onclick="goToStep2()">次へ ▶ リスク評価</button>
                 <button class="btn btn-draft" onclick="saveDraft()">💾 下書き</button>
             </div>
         </div>
@@ -1463,10 +1474,26 @@
             if (siteName !== 'その他') document.getElementById('ulcer-site-other').value = '';
         }
 
+        function goToStep2() {
+            const id   = document.getElementById('patient-id').value.trim();
+            const name = document.getElementById('patient-name').value.trim();
+            const rep  = document.getElementById('reporter-name').value.trim();
+            if (!id)   { showToast('⚠️ 患者IDを入力してください');   document.getElementById('patient-id').focus();   return; }
+            if (!name) { showToast('⚠️ 患者氏名を入力してください'); document.getElementById('patient-name').focus(); return; }
+            if (!rep)  { showToast('⚠️ 報告者氏名を入力してください'); document.getElementById('reporter-name').focus(); return; }
+            goStep(2);
+        }
+
         function goToStep5() {
-            if (!document.getElementById('ulcer-site').value) {
+            const site = document.getElementById('ulcer-site').value;
+            if (!site) {
                 showToast('⚠️ 褥瘡部位を選択してください');
                 document.getElementById('site-grid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            if (site === 'その他' && !document.getElementById('ulcer-site-other').value.trim()) {
+                showToast('⚠️ 部位（自由記入）を入力してください');
+                document.getElementById('ulcer-site-other').focus();
                 return;
             }
             goStep(5);
