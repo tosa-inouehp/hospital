@@ -344,6 +344,95 @@
             box-shadow: 0 3px 12px rgba(26, 115, 232, 0.3);
         }
 
+        /* ===== バージョン・更新履歴 ===== */
+        .changelog-section {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+        }
+
+        .changelog-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            padding: 2px 0;
+        }
+
+        .changelog-toggle h4 {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .changelog-badge {
+            font-size: 0.72rem;
+            background: var(--primary-light);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-weight: 700;
+        }
+
+        .changelog-body {
+            display: none;
+            margin-top: 12px;
+        }
+
+        .changelog-body.open {
+            display: block;
+        }
+
+        .changelog-version {
+            margin-bottom: 12px;
+        }
+
+        .cv-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .cv-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: white;
+            border-radius: 4px;
+            padding: 1px 7px;
+        }
+
+        .cv-tag.latest { background: var(--primary); }
+        .cv-tag.old    { background: var(--text-light); }
+
+        .cv-date {
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+
+        .cv-items {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .cv-items li {
+            font-size: 0.72rem;
+            color: var(--text);
+            padding: 1px 0 1px 14px;
+            position: relative;
+            line-height: 1.5;
+        }
+
+        .cv-items li::before {
+            content: '・';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+        }
+
         /* ===== スコアボックス ===== */
         .score-box {
             padding: 12px;
@@ -801,6 +890,57 @@
                 <button class="drafts-clear-btn" onclick="clearAllDrafts()">🗑️ 全削除</button>
             </div>
             <div id="draft-list"></div>
+
+            <div class="changelog-section">
+                <div class="changelog-toggle" onclick="toggleChangelog()">
+                    <h4>📋 バージョン情報・更新履歴</h4>
+                    <span class="changelog-badge">v1.3.0</span>
+                </div>
+                <div class="changelog-body" id="changelog-body">
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag latest">v1.3.0</span>
+                            <span class="cv-date">2026-04-11</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>DESIGN-R® 2020 スコア全項目修正（D・E・G・I・S）</li>
+                            <li>Braden・DESIGN-R 各カードに評価基準テキストを常時表示</li>
+                            <li>褥瘡部位をカード式タップ選択に変更・未選択バリデーション追加</li>
+                            <li>写真アップロードを最大2枚・横向き撮影注意書き追加</li>
+                            <li>カメラ直接起動をカメラ／ライブラリ選択可能に変更</li>
+                            <li>PDF写真出力を縦2枚フル幅レイアウトに変更</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.2.0</span>
+                            <span class="cv-date">2026-03-28</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>栄養管理に「中心静脈栄養」「絶食中」を追加</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.1.0</span>
+                            <span class="cv-date">2026-03-26</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>診療支援ポータルへ戻るリンクバーを追加</li>
+                            <li>管理計画の寝具項目を最上部に移動・院内マット選択肢追加</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.0.0</span>
+                            <span class="cv-date">2026-03-08</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>初期リリース</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ========== STEP 1: 患者・報告者情報 ========== -->
@@ -1527,6 +1667,11 @@
         }
 
         /* ===== トースト ===== */
+        function toggleChangelog() {
+            const body = document.getElementById('changelog-body');
+            body.classList.toggle('open');
+        }
+
         function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 
         /* ===== PDF生成 ===== */
