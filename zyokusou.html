@@ -1074,10 +1074,6 @@
                     <option>エアーマット(NEXUS-R)</option>
                     <option>エアーマット(NEXUS-iB)</option>
                     <option>マットレス(ディンプルマットレス)</option>
-                    <option>標準マットレス</option>
-                    <option>静止型ウレタン</option>
-                    <option>圧切替型エア</option>
-                    <option>自動体変付エア</option>
                 </select>
             </div>
             <div class="form-row">
@@ -1091,8 +1087,8 @@
                 <div class="form-group"><label>栄養管理</label>
                     <select id="plan-nutrition">
                         <option>通常食</option>
-                        <option>高カロリー食</option>
-                        <option>NST介入中</option>
+                        <option>治療食</option>
+                        <option>補助食品のみ</option>
                         <option>経管栄養</option>
                         <option>中心静脈栄養</option>
                         <option>絶食中</option>
@@ -1526,7 +1522,7 @@
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
-            document.getElementById('plan-mattress').value = '標準マットレス';
+            document.getElementById('plan-mattress').value = 'エアーマット(NEXUS-R)';
             document.getElementById('plan-positioning').value = '制限なし';
             document.getElementById('plan-nutrition').value = '通常食';
             document.getElementById('plan-skincare').value = '通常ケア';
@@ -1640,7 +1636,7 @@
             document.getElementById('reporter-name').value = data.reporterName || '';
             document.getElementById('reporter-job').value = data.reporterJob || '';
             document.getElementById('reporter-dept').value = data.reporterDept || '';
-            document.getElementById('plan-mattress').value = data.mattress || '標準マットレス';
+            document.getElementById('plan-mattress').value = data.mattress || 'エアーマット(NEXUS-R)';
             document.getElementById('plan-positioning').value = data.positioning || '制限なし';
             document.getElementById('plan-nutrition').value = data.nutrition || '通常食';
             document.getElementById('plan-skincare').value = data.skincare || '通常ケア';
