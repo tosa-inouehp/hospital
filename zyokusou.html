@@ -943,12 +943,22 @@
             <div class="changelog-section">
                 <div class="changelog-toggle" onclick="toggleChangelog()">
                     <h4>📋 バージョン情報・更新履歴</h4>
-                    <span class="changelog-badge">v1.4.0</span>
+                    <span class="changelog-badge">v1.5.0</span>
                 </div>
                 <div class="changelog-body" id="changelog-body">
                     <div class="changelog-version">
                         <div class="cv-header">
-                            <span class="cv-tag latest">v1.4.0</span>
+                            <span class="cv-tag latest">v1.5.0</span>
+                            <span class="cv-date">2026-06-10</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>DESIGN-R® 2020 の D（深さ）に「DDTI: 深部損傷褥瘡（DTI）疑い」を追加</li>
+                            <li>g0 の定義を公式表に合わせ修正（創治癒・浅い創・DTI疑いの場合）</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.4.0</span>
                             <span class="cv-date">2026-04-11</span>
                         </div>
                         <ul class="cv-items">
@@ -1301,6 +1311,7 @@
                 { v: 3, l: 'D3: 皮下組織まで',     d: '皮下脂肪層までの深い潰瘍' },
                 { v: 4, l: 'D4: 皮下組織を超える', d: '筋肉・骨・腱の露出' },
                 { v: 5, l: 'D5: 関節腔・体腔まで', d: '関節内・体腔（腹腔など）まで達する' },
+                { v: 0, l: 'DDTI: 深部損傷褥瘡（DTI）疑い', d: '視診・触診、補助データ（発生経緯・血液検査・画像診断等）から深部の損傷が疑われる' },
                 { v: 0, l: 'DU: 判定不能',         d: '壊死組織で創底が覆われ判定不能' }
             ]},
             { id: 'E', name: 'E（滲出液）', opts: [
@@ -1326,7 +1337,7 @@
                 { v: 9, l: 'I9: 全身的影響あり',   d: '発熱など全身症状' }
             ]},
             { id: 'G', name: 'G（肉芽組織）', opts: [
-                { v: 0, l: 'g0: 創閉鎖/治癒',   d: '創が完全に閉鎖/治癒' },
+                { v: 0, l: 'g0: 創閉鎖/治癒・浅い創・DTI疑い', d: '創が治癒した場合、創の浅い場合、DTI疑いの場合' },
                 { v: 1, l: 'g1: ≥90%良性肉芽', d: '鮮紅色の良好な肉芽が90%以上' },
                 { v: 3, l: 'G3: 50〜90%未満',   d: '良性肉芽50〜90%未満' },
                 { v: 4, l: 'G4: 10〜50%未満',   d: '良性肉芽10〜50%未満' },
