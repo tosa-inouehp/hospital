@@ -351,7 +351,14 @@ function vRoster(){
     <form class="addf" id="addf"><input class="n" id="add-n" inputmode="numeric" placeholder="背番号" aria-label="背番号">
       <input id="add-m" placeholder="名前（例：田中 一郎）" aria-label="名前"><button class="btn pri">追加</button></form>
     ${rows||'<div class="empty-s">まだ誰もいません。上の欄から追加してください。</div>'}
-  </div>`;
+  </div>
+  <div><p class="sec">名簿をまとめて登録・共有</p>
+    <p class="hint" style="margin:0 0 8px">「名簿をコピー」でLINEに貼れば、ほかの人は下の欄に貼り付けるだけで同じ名簿を登録できます。1行に「背番号 名前」の形で書きます。同じ名前の人は背番号だけ更新します。</p>
+    <div class="card" style="padding:12px;display:grid;gap:8px">
+      <textarea class="fb" id="rimp" aria-label="まとめて登録する名簿" placeholder="例：&#10;7 田中 一郎&#10;10 鈴木 次郎"></textarea>
+      <div class="actions"><button class="btn pri" data-act="rimp">貼り付けた内容で登録</button>
+        <button class="btn" data-act="rcopy" ${S.roster.length?'':'disabled'}>名簿をコピー</button></div></div></div>
+  <div id="fb"></div>`;
 }
 function vGame(){
   const g=S.game,maxInn=Math.max(7,S.inning,...Object.keys(g.runs.us).map(Number),...Object.keys(g.runs.opp).map(Number));
@@ -461,6 +468,15 @@ function gameText(){
   if(S.log.length){L.push('','【試合経過】');S.log.forEach(l=>L.push(`${innTxt(l.inning,l.half)} ${l.type}：${l.text}${l.runs?`（+${l.runs}点）`:''}`))}
   return L.join('\n');
 }
+function rosterText(){return ['【井上病院 名簿】',...S.roster.slice().sort(byNum).map(p=>`${p.num} ${p.name}`.trim())].join('\n')}
+function importRoster(txt){
+  let n=0,add=0,upd=0;const key=s=>s.replace(/[\s　]/g,'');
+  txt.split(/\r?\n/).forEach(l=>{l=l.trim();if(!l||l.startsWith('【'))return;
+    const m=l.match(/^#?(\d{1,3})[\s　,、]+(.+)$/);const num=m?m[1]:'',name=(m?m[2]:l).trim();n++;
+    const p=S.roster.find(x=>key(x.name)===key(name));
+    if(p){if(num&&p.num!==num){p.num=num;upd++}}else{S.roster.push({id:uid('p'),name,num});add++}});
+  return {n,add,upd};
+}
 function copyText(txt){
   const fb=()=>{document.getElementById('fb').innerHTML=`<textarea class="fb" id="fbt" readonly>${esc(txt)}</textarea>`;const x=document.getElementById('fbt');x.focus();x.select();toast('選択した文字をコピーしてください')};
   try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました。LINEなどに貼り付けできます'),fb)}catch(err){fb()}
@@ -510,6 +526,10 @@ document.addEventListener('click',e=>{
   if(a==='change'){const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
     if(S.half){S.inning=Math.min(15,S.inning+1);S.half=0}else S.half=1;paRes=null;save();render();toast(`${innTxt(S.inning,S.half)}　${usBat()?'井上病院':oppName()}の攻撃`);return}
   if(a==='copygame'){copyText(gameText());return}
+  if(a==='rcopy'){copyText(rosterText());return}
+  if(a==='rimp'){const r=importRoster(document.getElementById('rimp').value);
+    if(!r.n){toast('名簿を貼り付けてください');return}
+    save();render();toast(r.add||r.upd?`${r.add}人追加・${r.upd}人の背番号を更新しました`:'すべて登録済みでした');return}
   if(a==='allin'){S.today.members=S.roster.map(p=>p.id).filter(id=>!S.today.helpers.some(h=>h.as===id));save();render();return}
   if(a==='allout'){S.today.members.forEach(id=>clearKey('m:'+id));S.today.members=[];save();render();return}
   if(a==='copy'){const txt=orderText();
