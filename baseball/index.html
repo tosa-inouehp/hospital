@@ -294,6 +294,10 @@ function vToday(){
         <input type="text" id="addh-n" placeholder="助っ人の名前" aria-label="助っ人の名前">
         <select id="addh-a" aria-label="名義">${asOpts('')}</select>
         <button class="btn pri">追加</button></form></div></div>
+  <div><p class="sec">野球部LINEに共有</p>
+    <div class="actions"><button class="btn" data-act="bcopy" ${n?'':'disabled'}>テキストでコピー</button>
+      <button class="btn" data-act="bimg" ${n?'':'disabled'}>画像で共有</button></div></div>
+  <div id="fb"></div>
   <div class="actions"><button class="btn pri" data-tab="order">この${n}人で打順を決める →</button>
     <button class="btn danger" data-act="newgame" data-confirm>新しい試合</button></div>`;
 }
@@ -469,9 +473,62 @@ function gameText(){
   return L.join('\n');
 }
 function rosterText(){return ['【井上病院 名簿】',...S.roster.slice().sort(byNum).map(p=>`${p.num} ${p.name}`.trim())].join('\n')}
+function todayLabel(){const d=new Date();return `${d.getMonth()+1}/${d.getDate()}（${'日月火水木金土'[d.getDay()]}）`}
+function benchList(){
+  return entries().map(e=>{const p=P(e.pid);return {num:p?p.num:'',name:p?p.name:'',helper:e.helper}})
+    .sort((a,b)=>SK(a)-SK(b));
+}
+function benchText(){
+  const L=benchList(),nh=L.filter(x=>x.helper).length,opp=S.game.opp.trim();
+  return [`【井上病院 ベンチ入り】`,`${todayLabel()}${opp?` vs ${opp}`:''}`,`計${L.length}人${nh?`（うち助っ人${nh}人）`:''}`,'',
+    ...L.map(x=>`${x.num!==''?x.num+' ':''}${x.name||'名義未設定'}${x.helper?`（${x.helper}）`:''}`)].join('\n');
+}
+async function benchImage(){
+  const L=benchList(),nh=L.filter(x=>x.helper).length,opp=S.game.opp.trim();
+  try{await Promise.all(['400 40px "Dela Gothic One"','700 40px "Zen Kaku Gothic New"','500 40px "Zen Kaku Gothic New"','600 40px Oswald'].map(f=>document.fonts.load(f,'井上病院0123')))}catch(e){}
+  const JP='"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif',DISP='"Dela Gothic One","Hiragino Sans",sans-serif',NUM='Oswald,"Arial Narrow",sans-serif';
+  const W=1080,M=56,GAP=32,HEAD=250,RH=104,cols=L.length>8?2:1,rows=Math.ceil(L.length/cols),FOOT=120;
+  const H=HEAD+40+rows*RH+FOOT,cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');
+  const C={bg:'#f2f5f0',card:'#ffffff',ink:'#16231c',muted:'#5b6a60',line:'#d5ddd3',board:'#1c4a35',lamp:'#e2a812',helper:'#a05a00'};
+  c.fillStyle=C.bg;c.fillRect(0,0,W,H);
+  c.fillStyle=C.board;c.fillRect(0,0,W,HEAD);c.fillStyle=C.lamp;c.fillRect(0,HEAD-8,W,8);
+  c.textBaseline='alphabetic';
+  c.fillStyle='rgba(243,247,241,.75)';c.font=`600 30px ${NUM}`;c.fillText('INOUE HOSPITAL BASEBALL CLUB',M,72);
+  c.fillStyle='#f3f7f1';c.font=`400 66px ${DISP}`;c.fillText('ベンチ入りメンバー',M,158);
+  c.fillStyle=C.lamp;c.font=`700 38px ${JP}`;c.fillText(`${todayLabel()}${opp?`　vs ${opp}`:''}`,M,214);
+  const cw=(W-M*2-GAP*(cols-1))/cols;
+  L.forEach((x,i)=>{const col=Math.floor(i/rows),row=i%rows,X=M+col*(cw+GAP),Y=HEAD+40+row*RH;
+    c.fillStyle=C.card;c.beginPath();c.roundRect(X,Y,cw,RH-14,14);c.fill();c.strokeStyle=C.line;c.lineWidth=2;c.stroke();
+    c.fillStyle=x.helper?C.helper:C.board;c.beginPath();c.roundRect(X+14,Y+14,76,RH-42,10);c.fill();
+    c.fillStyle='#fff';c.font=`600 40px ${NUM}`;c.textAlign='center';c.fillText(x.num,X+52,Y+(RH-14)/2+14);c.textAlign='left';
+    const nx=X+108,maxw=cw-108-16;let fs=40;const nm=x.name||'名義未設定';
+    if(x.helper){c.font=`700 34px ${JP}`;c.fillStyle=C.ink;c.fillText(nm,nx,Y+44,maxw);
+      c.font=`700 28px ${JP}`;c.fillStyle=C.helper;c.fillText(`（${x.helper}）助っ人`,nx,Y+78,maxw);}
+    else{c.font=`700 ${fs}px ${JP}`;while(c.measureText(nm).width>maxw&&fs>26){fs-=2;c.font=`700 ${fs}px ${JP}`}
+      c.fillStyle=C.ink;c.fillText(nm,nx,Y+(RH-14)/2+fs*.36);}
+  });
+  c.fillStyle=C.muted;c.font=`500 34px ${JP}`;c.fillText(`計 ${L.length}人${nh?`（うち助っ人 ${nh}人）`:''}`,M,H-50);
+  c.textAlign='right';c.font=`600 28px ${NUM}`;c.fillText('SINCE 2018',W-M,H-50);c.textAlign='left';
+  return cv;
+}
+let benchFile=null;
+async function openBenchImage(){
+  const cv=await benchImage();const url=cv.toDataURL('image/png');
+  benchFile=null;
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  if(blob){try{const f=new File([blob],'bench.png',{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))benchFile=f}catch(e){}}
+  sheetCtx={key:'img'};
+  document.getElementById('sheet').innerHTML=`<div class="in"><h2>ベンチ入り画像</h2>
+    <img src="${url}" alt="ベンチ入りメンバーの画像" style="width:100%;border-radius:10px;border:1px solid var(--line)">
+    <p class="hint" style="margin:0">${benchFile?'「LINEなどに送る」から野球部LINEを選べます。':'画像を長押し（パソコンは右クリック）して保存し、LINEに送ってください。'}</p>
+    <div class="actions">${benchFile?'<button class="btn pri" data-act="bshare">LINEなどに送る</button>':''}
+      <a class="btn${benchFile?'':' pri'}" href="${url}" download="bench_${new Date().toISOString().slice(0,10)}.png" style="text-decoration:none">画像を保存</a>
+      <button class="btn" data-sh="close">閉じる</button></div></div>`;
+  document.getElementById('back').hidden=false;document.getElementById('sheet').hidden=false;
+}
 function importRoster(txt){
   let n=0,add=0,upd=0;const key=s=>s.replace(/[\s　]/g,'');
-  txt.split(/\r?\n/).forEach(l=>{l=l.trim();if(!l||l.startsWith('【'))return;
+  txt.split(/\r?\n/).forEach(l=>{l=l.normalize('NFKC').trim();if(!l||l.startsWith('【'))return;
     const m=l.match(/^#?(\d{1,3})[\s　,、]+(.+)$/);const num=m?m[1]:'',name=(m?m[2]:l).trim();n++;
     const p=S.roster.find(x=>key(x.name)===key(name));
     if(p){if(num&&p.num!==num){p.num=num;upd++}}else{S.roster.push({id:uid('p'),name,num});add++}});
@@ -527,6 +584,9 @@ document.addEventListener('click',e=>{
     if(S.half){S.inning=Math.min(15,S.inning+1);S.half=0}else S.half=1;paRes=null;save();render();toast(`${innTxt(S.inning,S.half)}　${usBat()?'井上病院':oppName()}の攻撃`);return}
   if(a==='copygame'){copyText(gameText());return}
   if(a==='rcopy'){copyText(rosterText());return}
+  if(a==='bcopy'){copyText(benchText());return}
+  if(a==='bimg'){openBenchImage();return}
+  if(a==='bshare'){if(benchFile)navigator.share({files:[benchFile]}).catch(()=>{});return}
   if(a==='rimp'){const r=importRoster(document.getElementById('rimp').value);
     if(!r.n){toast('名簿を貼り付けてください');return}
     save();render();toast(r.add||r.upd?`${r.add}人追加・${r.upd}人の背番号を更新しました`:'すべて登録済みでした');return}
