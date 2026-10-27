@@ -242,6 +242,9 @@ const HALF=['表','裏'];
 const innTxt=(i,h)=>`${i}回${h===null||h===undefined?'':HALF[h]}`;
 const usBat=(h=S.half)=>(h===0)===S.game.first;
 const oppName=()=>S.game.opp.trim()||'相手';
+/* 試合終了：g.end={inn,half} は最後に行った攻撃。表で終わったら後攻のその回は X */
+const endX=(i,h)=>{const E=S.game.end;return !!E&&E.half===0&&i===E.inn&&h===1};
+function resultTxt(){const u=total('us'),o=total('opp');return `井上病院 ${u}－${o} ${oppName()}　${u>o?'勝ち':u<o?'負け':'引き分け'}`}
 function total(side){return Object.values(S.game.runs[side]).reduce((a,b)=>a+(+b||0),0)}
 function addRuns(side,inn,n){const r=S.game.runs[side];r[inn]=Math.max(0,(+r[inn]||0)+n);if(!r[inn]&&n<0)delete r[inn]}
 function issues(){
@@ -367,9 +370,11 @@ function vRoster(){
 function vGame(){
   const g=S.game,maxInn=Math.max(7,S.inning,...Object.keys(g.runs.us).map(Number),...Object.keys(g.runs.opp).map(Number));
   const order=g.first?[['us','井上病院',0],['opp',oppName(),1]]:[['opp',oppName(),0],['us','井上病院',1]];
-  const cell=(side,i,h)=>{const v=g.runs[side][i];const cur=i===S.inning&&h===S.half;
-    const fut=i>S.inning||(i===S.inning&&h>S.half);
-    return `<td><button data-cell="${i},${h}" class="${cur?'cur':''} ${fut?'fut':''}" aria-label="${innTxt(i,h)}">${v!==undefined?v:(fut?'':(cur?'·':'0'))}</button></td>`};
+  const E=g.end;
+  const cell=(side,i,h)=>{const v=g.runs[side][i];const cur=!E&&i===S.inning&&h===S.half;
+    const x=v===undefined&&endX(i,h);
+    const fut=!x&&(E?i>E.inn||(i===E.inn&&h>E.half):i>S.inning||(i===S.inning&&h>S.half));
+    return `<td><button data-cell="${i},${h}" class="${cur?'cur':''} ${fut?'fut':''}" aria-label="${innTxt(i,h)}">${v!==undefined?v:(x?'X':(fut?'':(cur?'·':'0')))}</button></td>`};
   const board=`<div class="sbwrap"><table class="sb"><thead><tr><th class="tm"></th>${Array.from({length:maxInn},(_,k)=>`<th>${k+1}</th>`).join('')}<th class="tot">計</th></tr></thead>
     <tbody>${order.map(([side,name,h])=>`<tr><td class="tm">${esc(name)}</td>${Array.from({length:maxInn},(_,k)=>cell(side,k+1,h)).join('')}<td class="tot">${total(side)}</td></tr>`).join('')}</tbody></table></div>`;
   const bat=usBat(),side=bat?'us':'opp',cur=+g.runs[side][S.inning]||0;
@@ -387,10 +392,14 @@ function vGame(){
   return `<div class="gset"><input type="text" id="g-opp" value="${esc(g.opp)}" placeholder="対戦相手のチーム名" aria-label="対戦相手">
     <div class="seg"><button data-first="1" aria-pressed="${g.first}">先攻</button><button data-first="0" aria-pressed="${!g.first}">後攻</button></div></div>
   ${board}
+  ${E?`<div class="now"><div class="nowhd"><b>試合終了</b><span class="who us">${resultTxt()}</span></div>
+    <span class="hint">${innTxt(E.inn,E.half)}で終了しました。続けて記録する場合は再開してください。</span>
+    <div class="actions"><button class="btn" data-act="resume" data-confirm>試合を再開する</button></div></div>`:`
   <div class="now"><div class="nowhd"><b>${innTxt(S.inning,S.half)}</b><span class="who ${bat?'us':''}">${bat?'井上病院の攻撃':esc(oppName())+'の攻撃'}</span>
     <span class="rr"><button class="btn sm" data-run="-1" aria-label="1点減らす">−</button><output>${cur}</output><button class="btn sm pri" data-run="1">＋1点</button></span></div>
     ${pa}
-    <div class="actions"><button class="btn pri" data-act="change">チェンジ → ${innTxt(S.half?S.inning+1:S.inning,S.half?0:1)}へ</button></div></div>
+    <div class="actions"><button class="btn pri" data-act="change">チェンジ → ${innTxt(S.half?S.inning+1:S.inning,S.half?0:1)}へ</button>
+      <button class="btn danger" data-act="end" data-confirm>この回で試合終了</button></div></div>`}
   <div><div class="sechd"><p class="sec">試合経過</p>${S.log.length?'<button class="btn sm" data-act="undo" data-confirm>最後の記録を取り消す</button>':''}</div>
     <div class="card log">${tl?`<ol>${tl}</ol>`:'<div class="empty-s">まだ記録がありません。打席の結果や交代を記録すると、ここに時系列で並びます。</div>'}</div></div>
   <div class="actions"><button class="btn pri" data-act="copygame">試合経過をテキストでコピー</button></div><div id="fb"></div>`;
@@ -468,7 +477,9 @@ function gameText(){
   const g=S.game,d=new Date(),maxInn=Math.max(S.inning,...Object.keys(g.runs.us).map(Number),...Object.keys(g.runs.opp).map(Number),1);
   const L=[`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 井上病院 ${total('us')} - ${total('opp')} ${oppName()}`];
   const order=g.first?[['us','井上病院'],['opp',oppName()]]:[['opp',oppName()],['us','井上病院']];
-  order.forEach(([sd,n],h)=>L.push(`${n}　${Array.from({length:maxInn},(_,k)=>{const i=k+1,v=g.runs[sd][i];if(v!==undefined)return v;return (i>S.inning||(i===S.inning&&h>=S.half))?'-':0}).join(' ')}　計${total(sd)}`));
+  const E=g.end;if(E)L[0]+=`（試合終了・${resultTxt().split('　').pop()}）`;
+  order.forEach(([sd,n],h)=>L.push(`${n}　${Array.from({length:E?E.inn:maxInn},(_,k)=>{const i=k+1,v=g.runs[sd][i];if(v!==undefined)return v;if(endX(i,h))return 'X';
+    return (E?i>E.inn||(i===E.inn&&h>E.half):i>S.inning||(i===S.inning&&h>=S.half))?'-':0}).join(' ')}　計${total(sd)}`));
   if(S.log.length){L.push('','【試合経過】');S.log.forEach(l=>L.push(`${innTxt(l.inning,l.half)} ${l.type}：${l.text}${l.runs?`（+${l.runs}点）`:''}`))}
   return L.join('\n');
 }
@@ -622,6 +633,9 @@ document.addEventListener('click',e=>{
     S.log.push({kind:'play',inning:S.inning,half:S.half,type:'守備',text:m,runs:0});save();render();toast('記録しました');return}
   if(a==='change'){const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
     if(S.half){S.inning=Math.min(15,S.inning+1);S.half=0}else S.half=1;paRes=null;save();render();toast(`${innTxt(S.inning,S.half)}　${usBat()?'井上病院':oppName()}の攻撃`);return}
+  if(a==='end'){if(!armed(t))return;const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
+    S.game.end={inn:S.inning,half:S.half};paRes=null;save();render();toast('試合終了：'+resultTxt());return}
+  if(a==='resume'){if(!armed(t))return;S.game.end=null;save();render();toast('試合を再開しました');return}
   if(a==='copygame'){copyText(gameText());return}
   if(a==='rcopy'){copyText(rosterText());return}
   if(a==='bcopy'){copyText(benchText());return}
