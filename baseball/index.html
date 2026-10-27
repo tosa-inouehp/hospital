@@ -155,6 +155,24 @@ nav button{font-size:.85rem;white-space:nowrap;min-width:0}
 .log li.sub .ty{color:var(--helper)}
 .log li.pl .ty{color:var(--board)}
 .log .rs{font-family:var(--f-num);color:var(--warn);font-weight:600;margin-left:6px}
+.st{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.st th,.st td{padding:6px 3px;border-top:1px solid var(--line);text-align:center;font-family:var(--f-num)}
+.st thead th{border-top:0;font-family:var(--f-body);font-size:.75rem;font-weight:700;color:var(--muted)}
+.st .n{text-align:left;font-family:var(--f-body);overflow-wrap:anywhere}
+.st td.o{color:var(--board);font-weight:600;width:1.6em}
+.st tr.tot td{font-weight:700}
+.past{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+.past:first-child{border-top:0}
+.past b{font-family:var(--f-num);font-size:1.15rem}
+.wl{font-size:.8rem;font-weight:700;color:var(--muted)}
+.wl.w{color:var(--board)}
+@media (max-width:420px){.past{grid-template-columns:1fr auto auto}.past .actions{grid-column:1/-1}}
+.outs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.outs i{width:16px;height:16px;border-radius:50%;border:2px solid var(--warn);display:inline-block}
+.outs i.on{background:var(--warn)}
+.outs .hint:last-child{flex-basis:100%}
+.gset2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gset2 input{width:100%;min-width:0;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -189,9 +207,12 @@ const KEY='inoue-order-v2';
 const SK=p=>p.num==='監督'?-2:p.num==='主将'?-1:(p.num!==''&&!isNaN(+p.num)?+p.num:999);
 const byNum=(a,b)=>SK(a)-SK(b);
 const TYPES=['代打','代走','守備交代','投手交代'];
-const RESULTS=['安打','二塁打','三塁打','本塁打','四球','死球','三振','凡打','犠打・犠飛','失策で出塁','野選','盗塁','その他'];
+/* 盗塁は打者の結果ではなく走者の記録なので、打席の結果ボタンとは別に記録する（NOT_PA には旧データのため残す） */
+const RESULTS=['安打','二塁打','三塁打','本塁打','四球','死球','三振','凡打','犠打・犠飛','失策で出塁','野選','その他'];
+const RUNNER=['盗塁','盗塁死','牽制死','暴投','捕逸','走塁死','その他'];
 const NOT_PA=['盗塁','その他'];
-const newGame=()=>({opp:'',first:true,runs:{us:{},opp:{}},next:0});
+const ymd=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const newGame=()=>({opp:'',first:true,runs:{us:{},opp:{}},next:0,oppNext:0,date:ymd(),outs:0,pOuts:{},pBase:0,oppOuts:{},oppBase:0,cup:'',oppP:''});
 let S, sheetCtx=null, toastT;
 
 const emptyS=()=>({pid:null,helper:'',hid:null});
@@ -199,10 +220,10 @@ const empty9=()=>Array.from({length:9},()=>({...emptyS(),pos:''}));
 const uid=(p)=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 /* 公開リポジトリのため部員名は書かない。初回は「名簿」タブで各端末に登録する */
 function sample(){
-  return {v:4,dh:false,inning:1,half:0,tab:'roster',roster:[],today:{members:[],helpers:[]},lineup:empty9(),pitcher:emptyS(),log:[],game:newGame()};
+  return {v:4,dh:false,inning:1,half:0,tab:'roster',roster:[],today:{members:[],helpers:[]},lineup:empty9(),pitcher:emptyS(),log:[],game:newGame(),history:[]};
 }
 function migrate(){
-  if(!S.game)S.game=newGame();if(S.half===undefined)S.half=0;if(S.tab==='log')S.tab='game';
+  if(!S.game)S.game=newGame();if(S.half===undefined)S.half=0;if(S.tab==='log')S.tab='game';if(!S.history)S.history=[];
   S.log.forEach(l=>{if(!l.kind)l.kind='sub';if(l.half===undefined)l.half=null});
   S.roster.forEach(p=>{if(p.num==='監督')p.num='30';if(p.num==='主将')p.num='10'});
   [...S.lineup,S.pitcher].forEach(s=>{if(s.hid===undefined)s.hid=null});
@@ -224,9 +245,19 @@ const keyOf=s=>s.hid?'h:'+s.hid:(s.pid?'m:'+s.pid:null);
 function fromKey(k){if(!k)return emptyS();
   if(k.startsWith('h:')){const h=H(k.slice(2));return h?{pid:h.as||null,helper:h.name,hid:h.id}:emptyS()}
   return {pid:k.slice(2),helper:'',hid:null}}
-function plain(s){const p=P(s.pid);if(!p)return s.helper?`名義未設定（${s.helper}）`:'未選択';return s.helper?`${p.name}（${s.helper}）`:p.name}
+/* 助っ人は「本人の名前（名義）」で表す。外に出すテキスト・画像は S.shareMode==='name' なら名義だけにする */
+function plain(s){const p=P(s.pid);if(!p)return s.helper?`${s.helper}（名義未設定）`:'未選択';return s.helper?`${s.helper}（${p.name}）`:p.name}
+const nominalOnly=()=>S.shareMode==='name';
+const helperPairs=()=>S.today.helpers.filter(h=>h.as&&P(h.as)).map(h=>({h:h.name,n:P(h.as).name}));
+function maskText(txt,pairs=helperPairs()){
+  if(!nominalOnly())return txt;
+  pairs.forEach(({h,n})=>{txt=txt.split(`${h}（${n}）`).join(n).split(`${n}（${h}）`).join(n)});
+  return txt;
+}
+const shareSeg=()=>`<div class="fl"><span>LINEに出す助っ人の表記</span><div class="seg">
+  <button data-smode="both" aria-pressed="${!nominalOnly()}">名前（名義）</button><button data-smode="name" aria-pressed="${nominalOnly()}">名義だけ</button></div></div>`;
 function label(s){const p=P(s.pid);if(!p)return '';
-  return esc(p.name)+(s.helper?`<span class="hp">（${esc(s.helper)}）</span>`:'')}
+  return s.helper?`<span class="hp">${esc(s.helper)}</span>（${esc(p.name)}）`:esc(p.name)}
 function slots(){const a=S.lineup.map((s,i)=>({s,lab:(i+1)+'番'}));if(S.dh)a.push({s:S.pitcher,lab:'投手'});return a}
 const onKey=k=>slots().some(x=>keyOf(x.s)===k);
 const memberUsed=pid=>slots().some(x=>x.s.pid===pid)||S.today.helpers.some(h=>h.as===pid);
@@ -299,7 +330,8 @@ function vToday(){
         <button class="btn pri">追加</button></form></div></div>
   <div><p class="sec">野球部LINEに共有</p>
     <div class="actions"><button class="btn" data-act="bcopy" ${n?'':'disabled'}>テキストでコピー</button>
-      <button class="btn" data-act="bimg" ${n?'':'disabled'}>画像で共有</button></div></div>
+      <button class="btn" data-act="bimg" ${n?'':'disabled'}>画像で共有</button></div>
+    ${nh?`<div style="margin-top:10px">${shareSeg()}</div>`:''}</div>
   <div id="fb"></div>
   <div class="actions"><button class="btn pri" data-tab="order">この${n}人で打順を決める →</button>
     <button class="btn danger" data-act="newgame" data-confirm>新しい試合</button></div>`;
@@ -316,11 +348,13 @@ function vOrder(){
   const pr=S.dh?row(S.pitcher,'P','投','P','投手を選ぶ'):'';
   const out=outSet();
   const bench=ent.filter(e=>!onKey(e.key));
-  return `${iss.length?`<div class="issues">${iss.map(t=>`<div>${esc(t)}</div>`).join('')}</div>`:`<div class="ok">✓ ${S.dh?'DH制・':''}9人そろっています</div>`}
+  return `${S.lastOrder?`<div class="actions"><button class="btn" data-act="lastorder" data-confirm>前回のオーダーを入れる</button></div>`:''}
+  ${iss.length?`<div class="issues">${iss.map(t=>`<div>${esc(t)}</div>`).join('')}</div>`:`<div class="ok">✓ ${S.dh?'DH制・':''}9人そろっています</div>`}
   <div class="card">${rows}${pr}</div>
   <div><div class="sechd"><p class="sec">控え（${bench.length}人）</p><button class="btn sm" data-tab="today">ベンチ入りを変更</button></div>
     <div class="bench">${bench.length?bench.map(e=>`<span class="${out.has(e.key)?'out':''}">${e.hid?label(e)||esc(plain(e)):`<em>${esc(P(e.pid)?.num)}</em>${esc(P(e.pid)?.name)}`}</span>`).join(''):'<span>なし</span>'}</div></div>
   <div class="actions"><button class="btn pri" data-act="copy">テキストでコピー</button><button class="btn" data-act="oimg">画像で共有</button></div>
+  ${S.today.helpers.length?shareSeg():''}
   <div id="fb"></div>`;
 }
 function vField(){
@@ -328,9 +362,9 @@ function vField(){
   const byPos={};S.lineup.forEach(s=>{if(s.pos&&s.pos!=='DH')byPos[s.pos]=s});
   if(S.dh)byPos['投']=S.pitcher;
   const pill=(pos,x,y)=>{const s=byPos[pos];const p=s&&P(s.pid);const sur=p?p.name.split(/[\s　]/)[0]:'';
-    const txt=p?sur+(s.helper?'（'+s.helper+'）':''):(s&&s.helper?'（'+s.helper+'）':'—');
+    const txt=s&&s.helper?s.helper+'（'+(sur||'名義未設定')+'）':(p?sur:'—');
     const w=Math.max(46,[...txt].length*12+30);
-    const body=s&&s.helper?`${esc(sur)}<tspan fill="var(--helper)" font-weight="700">（${esc(s.helper)}）</tspan>`:esc(txt);
+    const body=s&&s.helper?`<tspan fill="var(--helper)" font-weight="700">${esc(s.helper)}</tspan>（${esc(sur||'名義未設定')}）`:esc(txt);
     return `<g><rect x="${x-w/2}" y="${y-13}" width="${w}" height="26" rx="13" fill="var(--surface)" stroke="var(--line)"/>
       <circle cx="${x-w/2+13}" cy="${y}" r="9" fill="var(--board)"/>
       <text x="${x-w/2+13}" y="${y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--board-ink)">${pos}</text>
@@ -379,53 +413,111 @@ function vGame(){
     <tbody>${order.map(([side,name,h])=>`<tr><td class="tm">${esc(name)}</td>${Array.from({length:maxInn},(_,k)=>cell(side,k+1,h)).join('')}<td class="tot">${total(side)}</td></tr>`).join('')}</tbody></table></div>`;
   const bat=usBat(),side=bat?'us':'opp',cur=+g.runs[side][S.inning]||0;
   const lu=S.lineup.map((s,i)=>({s,i})).filter(x=>x.s.pid);
-  const pa=bat?`<div class="pa"><span class="sec" style="margin:0">打席を記録</span>
-      <div class="two"><select id="pa-b" aria-label="打者">${S.lineup.map((s,i)=>`<option value="${i}" ${i===g.next?'selected':''}>${i+1}番 ${esc(s.pid||s.helper?plain(s):'未選択')}</option>`).join('')}</select>
+  /* 相手の打席は名簿を持たず、打順の番号（相手1〜9番）だけで記録する */
+  const bopts=bat?S.lineup.map((s,i)=>`<option value="${i}" ${i===g.next?'selected':''}>${i+1}番 ${esc(s.pid||s.helper?plain(s):'未選択')}</option>`).join('')
+    :Array.from({length:9},(_,i)=>`<option value="${i}" ${i===(g.oppNext||0)?'selected':''}>相手${i+1}番</option>`).join('');
+  /* 盗塁した走者は、ふつう直前の打者なので、その番号を初期値にする */
+  const prev=((bat?g.next:(g.oppNext||0))+8)%9;
+  const ropts=bat?S.lineup.map((s,i)=>`<option value="${i}" ${i===prev?'selected':''}>${i+1}番 ${esc(s.pid||s.helper?plain(s):'未選択')}</option>`).join('')
+    :Array.from({length:9},(_,i)=>`<option value="${i}" ${i===prev?'selected':''}>相手${i+1}番</option>`).join('');
+  const pa=`<div class="pa"><span class="sec" style="margin:0">${bat?'打席を記録':'相手の打席を記録'}</span>
+      <div class="two"><select id="pa-b" aria-label="打者">${bopts}</select>
       <select id="pa-r" aria-label="この打席で入った点"><option value="0">得点なし</option>${[1,2,3,4].map(n=>`<option value="${n}">${n}点入った</option>`).join('')}</select></div>
-      <div class="types" id="pa-t">${RESULTS.map(r=>`<button type="button" data-res="${r}">${r}</button>`).join('')}</div>
-      <input type="text" id="pa-m" placeholder="メモ（任意）例：右中間、2アウト">
-      <div class="actions"><button class="btn amber" data-act="pa" disabled id="pa-go">記録する</button></div></div>`
-    :`<div class="pa"><span class="sec" style="margin:0">守備中のメモ</span>
-      <input type="text" id="pa-m" placeholder="例：2アウト満塁をしのいだ、4番に本塁打">
-      <div class="actions"><button class="btn" data-act="memo">メモを記録</button></div></div>`;
+      <div class="types" id="pa-t">${RESULTS.map(r=>`<button type="button" data-res="${r}" aria-pressed="${r===paRes}">${r}</button>`).join('')}</div>
+      <input type="text" id="pa-m" value="${esc(paMemo)}" placeholder="${bat?'メモ（任意）例：右中間、2アウト':'メモ（任意）例：2アウト満塁をしのいだ'}">
+      <div class="actions"><button class="btn amber" data-act="pa" ${paRes?'':'disabled'} id="pa-go">記録する</button>
+        ${bat?'':'<button class="btn" data-act="memo">メモだけ記録</button>'}</div></div>
+    <div class="pa"><span class="sec" style="margin:0">走者の記録（打席の途中でも記録できます）</span>
+      <div class="two"><select id="pa-sr" aria-label="走者">${ropts}</select>
+        <select id="pa-sr-r" aria-label="このプレーで入った点"><option value="0">得点なし</option>${[1,2,3].map(n=>`<option value="${n}">${n}点入った</option>`).join('')}</select></div>
+      <div class="types" id="sr-t">${RUNNER.map(r=>`<button type="button" data-srt="${r}" aria-pressed="${r===srType}">${r}</button>`).join('')}</div>
+      <input type="text" id="sr-m" value="${esc(srMemo)}" placeholder="メモ（任意）例：二塁から三塁へ、捕手の悪送球">
+      <div class="actions"><button class="btn" data-act="runner" ${srType?'':'disabled'} id="sr-go">走者を記録</button></div></div>`;
   const tl=S.log.slice().reverse().map(l=>`<li class="${l.kind==='play'?'pl':'sub'}"><span class="inn">${innTxt(l.inning,l.half)}</span><span><span class="ty">${esc(l.type)}</span>${esc(l.text)}${l.runs?`<span class="rs">+${l.runs}点</span>`:''}</span></li>`).join('');
   return `<div class="gset"><input type="text" id="g-opp" value="${esc(g.opp)}" placeholder="対戦相手のチーム名" aria-label="対戦相手">
     <div class="seg"><button data-first="1" aria-pressed="${g.first}">先攻</button><button data-first="0" aria-pressed="${!g.first}">後攻</button></div></div>
+  <div class="gset2"><label class="fl"><span>大会名（任意）</span><input type="text" id="g-cup" value="${esc(g.cup||'')}" placeholder="例：第15回 ○○大会"></label>
+    <label class="fl"><span>現在の相手投手</span><input type="text" id="g-oppP" value="${esc(g.oppP||'')}" placeholder="名前（任意）">
+      <span class="hint">交代したら下の「相手の投手交代」で記録</span></label></div>
   ${board}
   ${E?`<div class="now"><div class="nowhd"><b>試合終了</b><span class="who us">${resultTxt()}</span></div>
     <span class="hint">${innTxt(E.inn,E.half)}で終了しました。続けて記録する場合は再開してください。</span>
     <div class="actions"><button class="btn" data-act="resume" data-confirm>試合を再開する</button></div></div>`:`
   <div class="now"><div class="nowhd"><b>${innTxt(S.inning,S.half)}</b><span class="who ${bat?'us':''}">${bat?'井上病院の攻撃':esc(oppName())+'の攻撃'}</span>
     <span class="rr"><button class="btn sm" data-run="-1" aria-label="1点減らす">−</button><output>${cur}</output><button class="btn sm pri" data-run="1">＋1点</button></span></div>
+    <div class="outs"><span class="hint">アウト</span>${[0,1,2].map(i=>`<i class="${i<(g.outs||0)?'on':''}"></i>`).join('')}
+      <button class="btn sm" data-out="-1" aria-label="アウトを1つ減らす">−</button><button class="btn sm" data-out="1">＋アウト</button>
+      <span class="hint">三振・凡打・犠打・盗塁死などは自動で数えます</span></div>
     ${pa}
-    <div class="actions"><button class="btn pri" data-act="change">チェンジ → ${innTxt(S.half?S.inning+1:S.inning,S.half?0:1)}へ</button>
+    <div class="pa"><span class="sec" style="margin:0">選手交代</span>
+      <div class="actions"><button class="btn" data-act="subpick">代打・代走・守備交代・投手交代を記録</button>
+        <button class="btn" data-act="opppick">相手の投手交代</button></div></div>
+    <div class="actions"><button class="btn ${(g.outs||0)>=3?'amber':'pri'}" data-act="change">${(g.outs||0)>=3?'3アウト　':''}チェンジ → ${innTxt(S.half?S.inning+1:S.inning,S.half?0:1)}へ</button>
       <button class="btn danger" data-act="end" data-confirm>この回で試合終了</button></div></div>`}
   <div><div class="sechd"><p class="sec">試合経過</p>${S.log.length?'<button class="btn sm" data-act="undo" data-confirm>最後の記録を取り消す</button>':''}</div>
     <div class="card log">${tl?`<ol>${tl}</ol>`:'<div class="empty-s">まだ記録がありません。打席の結果や交代を記録すると、ここに時系列で並びます。</div>'}</div></div>
-  <div class="actions"><button class="btn pri" data-act="copygame">試合経過をテキストでコピー</button></div><div id="fb"></div>`;
+  ${vStats()}
+  <div class="actions"><button class="btn pri" data-act="copygame">試合結果・成績をテキストでコピー</button></div>
+  ${S.today.helpers.length||S.history.some(h=>h.pairs&&h.pairs.length)?shareSeg():''}<div id="fb"></div>
+  ${S.history.length?`<div><p class="sec">過去の試合（${S.history.length}）</p><div class="card">${S.history.map((h,i)=>`<div class="past">
+    <span>${esc(h.date.slice(5).replace('-','/'))} vs ${esc(h.opp)}</span><b>${h.us}－${h.them}</b>
+    <span class="wl ${h.us>h.them?'w':''}">${h.us>h.them?'勝':h.us<h.them?'負':'分'}</span>
+    <span class="actions"><button class="btn sm" data-hcopy="${i}">コピー</button><button class="btn sm danger" data-hdel2="${i}" data-confirm>削除</button></span></div>`).join('')}</div>
+    <p class="hint" style="margin:6px 0 0">「新しい試合」を押すと、それまでの試合がここに保存されます（最新50試合）。</p></div>`:''}`;
 }
 /* ---------- sheet ---------- */
-function openSheet(key){
+/* 試合タブの「選手交代」：まず交代する打順を選ぶ → 交代用の画面（openSheet の game モード）へ */
+function openSubPick(){
+  sheetCtx={key:'pick'};
+  const row=(s,ord,pos,key)=>{const has=s.pid||s.helper;return `<button class="row${key==='P'?' prow':''}" data-edit="${key}">
+    <span class="ord">${ord}</span><span class="pos ${pos?'':'empty'}">${pos?(pos==='DH'?'指':pos):'—'}</span>
+    <span class="nm ${has?'':'empty'}">${has?(label(s)||esc(plain(s))):'未選択'}</span><span class="num">${numTxt(P(s.pid))}</span></button>`};
+  document.getElementById('sheet').innerHTML=`<div class="in">
+    <h2>選手交代<span class="hint" style="font-weight:400">${innTxt(S.inning,S.half)}</span></h2>
+    <p class="hint" style="margin:0">交代する打順（退く選手）をタップしてください。守備位置だけ変わる人も同じです。</p>
+    <div class="card">${S.lineup.map((s,i)=>row(s,i+1,s.pos,i)).join('')}${S.dh?row(S.pitcher,'P','投','P'):''}</div>
+    <div class="actions"><button class="btn" data-sh="close">閉じる</button></div></div>`;
+  document.getElementById('back').hidden=false;document.getElementById('sheet').hidden=false;
+}
+function openSheet(key,game){
   const s=key==='P'?S.pitcher:S.lineup[key];
-  sheetCtx={key,sel:keyOf(s),pos:key==='P'?'投':s.pos,type:null};
+  sheetCtx={key,sel:keyOf(s),pos:key==='P'?'投':s.pos,type:null,game:!!game};
   drawSheet();
   document.getElementById('back').hidden=false;document.getElementById('sheet').hidden=false;
+}
+function drawGameSheet(c,isP,playerSel,posList){
+  const s=isP?S.pitcher:S.lineup[c.key];
+  document.getElementById('sheet').innerHTML=`<div class="in">
+    <h2><span class="ord">${isP?'P':(+c.key+1)}</span>${isP?'投手':'番'}の交代<span class="hint" style="font-weight:400">${innTxt(S.inning,S.half)}</span></h2>
+    <p class="hint" style="margin:0">いま：<b>${s.pid||s.helper?(label(s)||esc(plain(s))):'未選択'}</b>${!isP&&s.pos?`（${s.pos==='DH'?'指':s.pos}）`:''}</p>
+    <div class="fl"><span>① 交代の種類</span><div class="types">${TYPES.map(t=>`<button type="button" data-type="${t}" aria-pressed="${c.type===t}">${t}</button>`).join('')}</div></div>
+    <label class="fl"><span>② 入る選手（同じ選手のまま守備だけ変える場合はそのまま）</span>${playerSel}
+      <span class="hint">表示：<b id="sh-prev"></b></span></label>
+    ${isP?'':`<div class="fl"><span>③ 守備位置</span><div class="posgrid">${posList.map(p=>`<button type="button" data-pos="${p}" aria-pressed="${c.pos===p}">${p==='DH'?'指':p}</button>`).join('')}</div></div>`}
+    <div class="actions">
+      <button class="btn amber" data-sh="sub" ${c.type?'':'disabled'}>交代として記録</button>
+      <button class="btn" data-act="subpick">← 打順を選び直す</button>
+      <button class="btn" data-sh="close">閉じる</button></div>
+    ${c.type?'':'<span class="hint">①で種類を選ぶと記録できます</span>'}</div>`;
+  updPrev();
 }
 function drawSheet(){
   const c=sheetCtx,isP=c.key==='P';const cur=keyOf(isP?S.pitcher:S.lineup[c.key]);
   const ent=entries();
   const opt=e=>{const busy=e.key!==cur&&onKey(e.key);
-    const t=e.hid?(P(e.pid)?`${P(e.pid).name}（${e.helper}）`:`（${e.helper}）名義未設定`):`${P(e.pid).num}　${P(e.pid).name}`;
+    const t=e.hid?`${e.helper}（${P(e.pid)?P(e.pid).name:'名義未設定'}）`:`${P(e.pid).num}　${P(e.pid).name}`;
     return `<option value="${e.key}" ${c.sel===e.key?'selected':''} ${e.hid&&!e.pid?'disabled':''}>${esc(t)}${busy?' ・出場中':''}</option>`};
   const mem=ent.filter(e=>!e.hid),hel=ent.filter(e=>e.hid);
   const extra=cur&&!ent.some(e=>e.key===cur)?`<option value="${cur}" selected>${esc(plain(fromKey(cur)))}（ベンチ入り外）</option>`:'';
   const posList=isP?[]:(S.dh?[...FIELD.filter(p=>p!=='投'),'DH']:FIELD);
+  const playerSel=`<select id="sh-player"><option value="">選んでください</option>${extra}
+        ${mem.length?`<optgroup label="メンバー">${mem.map(opt).join('')}</optgroup>`:''}
+        ${hel.length?`<optgroup label="助っ人">${hel.map(opt).join('')}</optgroup>`:''}</select>`;
+  if(c.game){drawGameSheet(c,isP,playerSel,posList);return}
   document.getElementById('sheet').innerHTML=`<div class="in">
     <h2><span class="ord">${isP?'P':(+c.key+1)}</span>${isP?'投手（打順なし）':'番打者'}</h2>
     <label class="fl"><span>選手（ベンチ入りから選ぶ）</span>
-      <select id="sh-player"><option value="">選んでください</option>${extra}
-        ${mem.length?`<optgroup label="メンバー">${mem.map(opt).join('')}</optgroup>`:''}
-        ${hel.length?`<optgroup label="助っ人">${hel.map(opt).join('')}</optgroup>`:''}</select>
+      ${playerSel}
       <span class="hint">表示：<b id="sh-prev"></b></span></label>
     ${isP?'':`<div class="fl"><span>守備位置</span><div class="posgrid">${posList.map(p=>`<button type="button" data-pos="${p}" aria-pressed="${c.pos===p}">${p==='DH'?'指':p}</button>`).join('')}</div></div>
     <div class="actions"><button class="btn sm" data-mv="-1" ${c.key==0?'disabled':''}>▲ 打順を上げる</button><button class="btn sm" data-mv="1" ${c.key==8?'disabled':''}>▼ 下げる</button></div>`}
@@ -443,7 +535,8 @@ function closeSheet(){sheetCtx=null;document.getElementById('back').hidden=true;
 function applySheet(logIt){
   const c=sheetCtx,isP=c.key==='P';const s=isP?S.pitcher:S.lineup[c.key];
   const nw={...fromKey(c.sel),pos:isP?'':c.pos};
-  if(logIt){
+  const k0=keyOf(curPitcher());
+  if(logIt){markStart();
     const old={pid:s.pid,helper:s.helper,hid:s.hid,pos:s.pos};
     const who=isP?'投手':(+c.key+1)+'番';
     const changed=keyOf(old)!==keyOf(nw);let text;
@@ -451,9 +544,13 @@ function applySheet(logIt){
       if(!isP)text+=old.pos!==nw.pos?`（${old.pos||'—'}→${nw.pos||'—'}）`:(nw.pos?`（${nw.pos}）`:'');}
     else if(!isP&&old.pos!==nw.pos)text=`${who} ${plain(old)} 守備 ${old.pos||'—'}→${nw.pos||'—'}`;
     else{toast('変更がありません');return}
-    S.log.push({kind:'sub',inning:S.inning,half:S.half,type:c.type,text,out:changed?keyOf(old):null,snap:JSON.stringify({lineup:S.lineup,pitcher:S.pitcher})});
+    S.log.push({kind:'sub',inning:S.inning,half:S.half,type:c.type,text,out:changed?keyOf(old):null,
+      bi:isP?null:+c.key,inKey:changed?keyOf(nw):null,snap:JSON.stringify({lineup:S.lineup,pitcher:S.pitcher})});
   }
   s.pid=nw.pid;s.helper=nw.helper;s.hid=nw.hid;if(!isP)s.pos=nw.pos;
+  /* 守備中の回の途中で投手が代わったら、それまでのアウトを前の投手に積む */
+  const g=S.game;if(!usBat()&&!g.end&&keyOf(curPitcher())!==k0&&S.log.length){const o=g.outs||0;
+    g.pOuts=g.pOuts||{};g.pOuts[k0||'']=(g.pOuts[k0||'']||0)+Math.max(0,o-(g.pBase||0));g.pBase=o}
   save();closeSheet();render();toast(logIt?'交代を記録しました':'保存しました');
 }
 
@@ -473,15 +570,86 @@ function orderText(){
   if(bench.length)L.push('控え：'+bench.map(e=>plain(e)).join('、'));
   return L.join('\n');
 }
+/* ---------- 成績の集計（打席の記録から数える） ---------- */
+const HITS=['安打','二塁打','三塁打','本塁打'],WALKS=['四球','死球'],CIRC='①②③④⑤⑥⑦⑧⑨';
+const curPitcher=()=>S.dh?S.pitcher:(S.lineup.find(s=>s.pos==='投')||emptyS());
+const nameOf=k=>k?plain(fromKey(k)):'投手未設定';
+const gameDate=()=>S.game.date?new Date(S.game.date+'T00:00'):new Date();
+function stats(){
+  const B=new Map(),slots=Array.from({length:9},()=>[]);
+  const add=(i,k)=>{if(k&&i>=0&&i<9&&!slots[i].includes(k))slots[i].push(k)};
+  /* 交代で退いた先発も打順の位置に残す（打席が無くても①〜⑨の行を出す） */
+  S.log.forEach(l=>{if(l.kind==='sub'&&l.bi!=null&&l.out){add(l.bi,l.out);add(l.bi,l.inKey);return}
+    if(l.kind!=='play'||l.side!=='us'||!l.key||l.run||NOT_PA.includes(l.type))return;
+    add(l.bi,l.key);let r=B.get(l.key);if(!r)B.set(l.key,r={pa:0,ab:0,h:0,rbi:0,so:0,bb:0});
+    r.pa++;if(!WALKS.includes(l.type)&&l.type!=='犠打・犠飛')r.ab++;if(HITS.includes(l.type))r.h++;
+    if(l.type==='三振')r.so++;if(WALKS.includes(l.type))r.bb++;if(l.type!=='失策で出塁')r.rbi+=l.runs||0});
+  S.lineup.forEach((s,i)=>add(i,keyOf(s)));
+  const seen=new Set(),bat=[];
+  slots.forEach((ks,i)=>ks.forEach((k,j)=>{if(seen.has(k))return;seen.add(k);bat.push({key:k,ord:j===0?i+1:0,...(B.get(k)||{pa:0,ab:0,h:0,rbi:0,so:0,bb:0})})}));
+  const Pm=new Map();
+  S.log.forEach(l=>{if(l.kind!=='play'||l.side!=='opp')return;
+    const notPA=l.run||NOT_PA.includes(l.type);if(notPA&&!l.runs)return;
+    const k=l.pit||'';let r=Pm.get(k);if(!r)Pm.set(k,r={key:k,bf:0,h:0,so:0,bb:0,r:0});
+    if(notPA){r.r+=l.runs;return}  /* 暴投などで入った点は失点にだけ数える */
+    r.bf++;if(HITS.includes(l.type))r.h++;if(l.type==='三振')r.so++;if(WALKS.includes(l.type))r.bb++;r.r+=l.runs||0});
+  const tot=bat.reduce((a,r)=>{['ab','h','rbi','so','bb'].forEach(f=>a[f]+=r[f]);return a},{ab:0,h:0,rbi:0,so:0,bb:0});
+  const po=pitOuts();
+  Object.keys(po.m).forEach(k=>{if(!Pm.has(k)&&po.m[k])Pm.set(k,{key:k,bf:0,h:0,so:0,bb:0,r:0})});
+  const pit=[...Pm.values()].map(r=>({...r,outs:po.m[r.key]||0}));
+  /* 相手投手：こちらの打席から数える（相手の継投は区別しない） */
+  /* 相手投手：こちらの打席を、そのとき投げていた相手投手（l.op）ごとに数える。
+     ＋1点ボタンだけで入れた点は、いま投げている投手の失点にまとめる */
+  const cur=oppPitName(),OP=new Map(),get=n=>{let r=OP.get(n);if(!r)OP.set(n,r={name:n,bf:0,h:0,so:0,bb:0,r:0,outs:0});return r};
+  let logged=0;
+  S.log.forEach(l=>{if(l.kind==='sub'&&l.side==='opp'){get(l.prevOp);return}
+    if(l.kind!=='play'||l.side!=='us')return;const r=get(l.op||cur);r.r+=l.runs||0;logged+=l.runs||0;
+    if(l.run||NOT_PA.includes(l.type)||!RESULTS.includes(l.type))return;
+    r.bf++;if(HITS.includes(l.type))r.h++;if(l.type==='三振')r.so++;if(WALKS.includes(l.type))r.bb++});
+  Object.keys(po.opp).forEach(n=>get(n).outs=po.opp[n]);
+  if(total('us')>logged)get(cur).r+=total('us')-logged;
+  const opp=[...OP.values()].filter(r=>r.bf||r.outs||r.r);
+  return {bat,tot,pit,opp,any:bat.some(r=>r.pa)||pit.length>0};
+}
+function vStats(){
+  const st=stats();if(!st.any)return '';
+  const br=st.bat.map(r=>`<tr><td class="o">${r.ord||''}</td><td class="n">${esc(nameOf(r.key))}</td><td>${r.ab}</td><td>${r.h}</td><td>${r.rbi}</td><td>${r.so}</td><td>${r.bb}</td></tr>`).join('');
+  const t=st.tot;
+  const prow=(nm,r)=>`<tr><td class="n">${nm}</td><td>${ipTxt(r.outs)}</td><td>${r.bf}</td><td>${r.h}</td><td>${r.so}</td><td>${r.bb}</td><td>${r.r}</td></tr>`;
+  const pr=st.pit.map(r=>prow(esc(nameOf(r.key)),r)).join('')+st.opp.map(r=>prow(`<span class="hint">${esc(r.name)}</span>`,r)).join('');
+  return `<div><p class="sec">成績（記録した打席から自動集計）</p><div class="card" style="padding:4px 10px">
+    <table class="st"><thead><tr><th></th><th class="n">打撃</th><th>打</th><th>安</th><th>点</th><th>振</th><th>球</th></tr></thead>
+    <tbody>${br}<tr class="tot"><td></td><td class="n">計</td><td>${t.ab}</td><td>${t.h}</td><td>${t.rbi}</td><td>${t.so}</td><td>${t.bb}</td></tr></tbody></table>
+    ${pr?`<table class="st" style="margin-top:6px"><thead><tr><th class="n">投手</th><th>回</th><th>打者</th><th>安</th><th>振</th><th>球</th><th>失</th></tr></thead><tbody>${pr}</tbody></table>`:''}
+  </div><p class="hint" style="margin:6px 0 0">打点は「この打席で入った点」から数えます（失策での出塁は除く）。＋1点ボタンだけで入れた点は数えません。</p></div>`;
+}
 function gameText(){
-  const g=S.game,d=new Date(),maxInn=Math.max(S.inning,...Object.keys(g.runs.us).map(Number),...Object.keys(g.runs.opp).map(Number),1);
+  const g=S.game,d=gameDate(),maxInn=Math.max(S.inning,...Object.keys(g.runs.us).map(Number),...Object.keys(g.runs.opp).map(Number),1);
   const L=[`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 井上病院 ${total('us')} - ${total('opp')} ${oppName()}`];
+  const cup=(g.cup||'').trim();
   const order=g.first?[['us','井上病院'],['opp',oppName()]]:[['opp',oppName()],['us','井上病院']];
   const E=g.end;if(E)L[0]+=`（試合終了・${resultTxt().split('　').pop()}）`;
   order.forEach(([sd,n],h)=>L.push(`${n}　${Array.from({length:E?E.inn:maxInn},(_,k)=>{const i=k+1,v=g.runs[sd][i];if(v!==undefined)return v;if(endX(i,h))return 'X';
     return (E?i>E.inn||(i===E.inn&&h>E.half):i>S.inning||(i===S.inning&&h>=S.half))?'-':0}).join(' ')}　計${total(sd)}`));
+  const st=stats();
+  if(st.bat.some(r=>r.pa)){const t=st.tot;L.push('','【井上病院 打撃成績】打 安 点 振 球');
+    st.bat.forEach(r=>L.push(`${r.ord?CIRC[r.ord-1]:'　'}${nameOf(r.key)}　${r.ab} ${r.h} ${r.rbi} ${r.so} ${r.bb}`));
+    L.push(`　計　${t.ab} ${t.h} ${t.rbi} ${t.so} ${t.bb}`)}
+  const pl=r=>`${ipTxt(r.outs)} ${r.bf} ${r.h} ${r.so} ${r.bb} ${r.r}`;
+  if(st.pit.length||st.opp.length){L.push('','【投手成績】回 打者 安 振 球 失');
+    if(st.pit.length){L.push('井上病院');st.pit.forEach(r=>L.push(`　${nameOf(r.key)}　${pl(r)}`))}
+    if(st.opp.length){L.push(oppName());st.opp.forEach(r=>L.push(`　${r.name}　${pl(r)}`))}}
   if(S.log.length){L.push('','【試合経過】');S.log.forEach(l=>L.push(`${innTxt(l.inning,l.half)} ${l.type}：${l.text}${l.runs?`（+${l.runs}点）`:''}`))}
+  if(cup)L.unshift(cup);
   return L.join('\n');
+}
+const oppPitName=()=>(S.game.oppP||'').trim()||'相手投手';
+/* 前回のオーダーを入れる：今日出席のメンバーだけ戻す（助っ人・欠席者の枠は守備位置だけ残して空ける） */
+function applyLast(){
+  const o=JSON.parse(S.lastOrder);let miss=0;
+  const conv=s=>{if(s.pid&&!s.hid&&S.today.members.includes(s.pid))return {pid:s.pid,helper:'',hid:null};if(s.pid||s.helper)miss++;return emptyS()};
+  S.dh=!!o.dh;S.lineup=o.lineup.map(s=>({...conv(s),pos:s.pos||''}));S.pitcher=o.dh?conv(o.pitcher):emptyS();
+  return miss;
 }
 function rosterText(){return ['【井上病院 名簿】',...S.roster.slice().sort(byNum).map(p=>`${p.num} ${p.name}`.trim())].join('\n')}
 function todayLabel(){const d=new Date();return `${d.getMonth()+1}/${d.getDate()}（${'日月火水木金土'[d.getDay()]}）`}
@@ -491,8 +659,8 @@ function benchList(){
 }
 function benchText(){
   const L=benchList(),nh=L.filter(x=>x.helper).length,opp=S.game.opp.trim();
-  return [`【井上病院 ベンチ入り】`,`${todayLabel()}${opp?` vs ${opp}`:''}`,`計${L.length}人${nh?`（うち助っ人${nh}人）`:''}`,'',
-    ...L.map(x=>`${x.num!==''?x.num+' ':''}${x.name||'名義未設定'}${x.helper?`（${x.helper}）`:''}`)].join('\n');
+  return [`【井上病院 ベンチ入り】`,`${todayLabel()}${opp?` vs ${opp}`:''}`,`計${L.length}人`,'',
+    ...L.map(x=>`${x.num!==''?x.num+' ':''}${x.helper&&!nominalOnly()?`${x.helper}（${x.name||'名義未設定'}）`:x.name||'名義未設定'}`)].join('\n');
 }
 /* 共有画像の共通部分（ヘッダー・フッター）。ベンチ入りと打順で使う */
 const IMG={W:1080,M:56,HEAD:250,FOOT:120,
@@ -520,15 +688,16 @@ async function benchImage(){
   const cw=(W-M*2-GAP*(cols-1))/cols;
   L.forEach((x,i)=>{const col=Math.floor(i/rows),row=i%rows,X=M+col*(cw+GAP),Y=HEAD+40+row*RH;
     c.fillStyle=C.card;c.beginPath();c.roundRect(X,Y,cw,RH-14,14);c.fill();c.strokeStyle=C.line;c.lineWidth=2;c.stroke();
-    c.fillStyle=x.helper?C.helper:C.board;c.beginPath();c.roundRect(X+14,Y+14,76,RH-42,10);c.fill();
+    const hp=x.helper&&!nominalOnly();
+    c.fillStyle=hp?C.helper:C.board;c.beginPath();c.roundRect(X+14,Y+14,76,RH-42,10);c.fill();
     c.fillStyle='#fff';c.font=`600 40px ${NUM}`;c.textAlign='center';c.fillText(x.num,X+52,Y+(RH-14)/2+14);c.textAlign='left';
     const nx=X+108,maxw=cw-108-16;let fs=40;const nm=x.name||'名義未設定';
-    if(x.helper){c.font=`700 34px ${JP}`;c.fillStyle=C.ink;c.fillText(nm,nx,Y+44,maxw);
-      c.font=`700 28px ${JP}`;c.fillStyle=C.helper;c.fillText(`（${x.helper}）助っ人`,nx,Y+78,maxw);}
+    if(hp){c.font=`700 34px ${JP}`;c.fillStyle=C.helper;c.fillText(x.helper,nx,Y+44,maxw);
+      c.font=`500 28px ${JP}`;c.fillStyle=C.muted;c.fillText(`（${nm}）`,nx,Y+78,maxw);}
     else{c.font=`700 ${fs}px ${JP}`;while(c.measureText(nm).width>maxw&&fs>26){fs-=2;c.font=`700 ${fs}px ${JP}`}
       c.fillStyle=C.ink;c.fillText(nm,nx,Y+(RH-14)/2+fs*.36);}
   });
-  imgFoot(c,H,`計 ${L.length}人${nh?`（うち助っ人 ${nh}人）`:''}`);
+  imgFoot(c,H,`計 ${L.length}人`);
   return cv;
 }
 async function orderImage(){
@@ -536,7 +705,7 @@ async function orderImage(){
   const {W,M,HEAD,JP,NUM,C}=IMG,RH=104,cw=W-M*2,ch=RH-14;
   const R=S.lineup.map((s,i)=>({ord:String(i+1),pos:s.pos==='DH'?'指':s.pos,s}));
   if(S.dh)R.push({ord:'P',pos:'投',s:S.pitcher});
-  const bench=entries().filter(e=>!onKey(e.key)).map(e=>plain(e));
+  const bench=entries().filter(e=>!onKey(e.key)).map(e=>maskText(plain(e)));
   const mc=document.createElement('canvas').getContext('2d');mc.font=`500 34px ${JP}`;
   const bl=[];let cur='';
   bench.forEach(t=>{if(cur&&mc.measureText(cur+'、'+t).width>cw){bl.push(cur+'、');cur=t}else cur=cur?cur+'、'+t:t});
@@ -551,8 +720,8 @@ async function orderImage(){
     const p=P(r.s.pid),num=p&&p.num!==''?(isNaN(+p.num)?p.num:'#'+p.num):'';
     c.textAlign='right';c.fillStyle=C.muted;c.font=`600 36px ${NUM}`;c.fillText(num,X+cw-24,mid+13);c.textAlign='left';
     const nx=X+200,maxw=cw-200-130,nm=p?p.name:(r.s.helper?'名義未設定':'未選択');
-    if(r.s.helper){c.font=`700 34px ${JP}`;c.fillStyle=C.ink;c.fillText(nm,nx,Y+44,maxw);
-      c.font=`700 28px ${JP}`;c.fillStyle=C.helper;c.fillText(`（${r.s.helper}）助っ人`,nx,Y+78,maxw)}
+    if(r.s.helper&&!nominalOnly()){c.font=`700 34px ${JP}`;c.fillStyle=C.helper;c.fillText(r.s.helper,nx,Y+44,maxw);
+      c.font=`500 28px ${JP}`;c.fillStyle=C.muted;c.fillText(`（${nm}）`,nx,Y+78,maxw)}
     else{let fs=40;c.font=`700 ${fs}px ${JP}`;while(c.measureText(nm).width>maxw&&fs>26){fs-=2;c.font=`700 ${fs}px ${JP}`}
       c.fillStyle=p?C.ink:C.muted;c.fillText(nm,nx,mid+fs*.36)}
   });
@@ -589,7 +758,74 @@ function copyText(txt){
   const fb=()=>{document.getElementById('fb').innerHTML=`<textarea class="fb" id="fbt" readonly>${esc(txt)}</textarea>`;const x=document.getElementById('fbt');x.focus();x.select();toast('選択した文字をコピーしてください')};
   try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました。LINEなどに貼り付けできます'),fb)}catch(err){fb()}
 }
-let paRes=null;
+/* アウトカウント：結果から自動で数える。チェンジ時に守っていた投手へアウト数（＝投球回）を積む。
+   g.pBase は回の途中で投手が代わったときの、その投手が登板した時点のアウト数 */
+const OUT_PA=['三振','凡打','犠打・犠飛'],OUT_RUN=['盗塁死','牽制死','走塁死'];
+const ipTxt=o=>o%3?`${o>=3?Math.floor(o/3):''}${['','⅓','⅔'][o%3]}`:String(o/3);
+function addOut(n){S.game.outs=Math.max(0,Math.min(3,(S.game.outs||0)+n))}
+function creditOuts(n){const g=S.game;n=Math.min(3,n);
+  if(usBat()){const k=oppPitName();g.oppOuts=g.oppOuts||{};g.oppOuts[k]=(g.oppOuts[k]||0)+Math.max(0,n-(g.oppBase||0))}
+  else{const k=keyOf(curPitcher())||'';g.pOuts=g.pOuts||{};g.pOuts[k]=(g.pOuts[k]||0)+Math.max(0,n-(g.pBase||0))}
+  g.pBase=0;g.oppBase=0}
+/* 集計用：確定分＋いま進行中の回のアウト。アウトを数えていない（0のまま）回は、チェンジ・試合終了時に3アウトとみなす */
+function pitOuts(){const g=S.game,m={...(g.pOuts||{})},opp={...(g.oppOuts||{})};
+  const live=g.end?((g.outs||0)||3):(g.outs||0);
+  if(usBat()){const k=oppPitName();const n=Math.max(0,live-(g.oppBase||0));if(n)opp[k]=(opp[k]||0)+n}
+  else{const k=keyOf(curPitcher())||'';const n=Math.max(0,live-(g.pBase||0));if(n||m[k]!==undefined)m[k]=(m[k]||0)+n}
+  return {m,opp}}
+/* 相手の投手交代：攻撃中ならそこまでのアウトを前の投手に積み、以後の打席は新しい投手につける */
+function openOppPitch(){
+  sheetCtx={key:'opp'};
+  const n=new Set([...S.log.filter(l=>l.op).map(l=>l.op),oppPitName()]).size+1;
+  document.getElementById('sheet').innerHTML=`<div class="in">
+    <h2>相手の投手交代<span class="hint" style="font-weight:400">${innTxt(S.inning,S.half)}</span></h2>
+    <p class="hint" style="margin:0">いま：<b>${esc(oppPitName())}</b></p>
+    <label class="fl"><span>代わった投手の名前（分からなければ空欄のままで「相手投手${n}」になります）</span>
+      <input type="text" id="op-new" placeholder="相手投手${n}" style="font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"></label>
+    <div class="actions"><button class="btn amber" data-act="opprec" data-n="${n}">投手交代を記録</button><button class="btn" data-sh="close">閉じる</button></div></div>`;
+  document.getElementById('back').hidden=false;document.getElementById('sheet').hidden=false;
+}
+function recordOppPitch(nm){
+  const g=S.game,old=oppPitName();if(nm===old){toast('いまの投手と同じ名前です');return false}
+  const snap=JSON.stringify({oppP:g.oppP,oppOuts:g.oppOuts||{},oppBase:g.oppBase||0});markStart();
+  if(usBat()&&!g.end){const o=g.outs||0;g.oppOuts=g.oppOuts||{};g.oppOuts[old]=(g.oppOuts[old]||0)+Math.max(0,o-(g.oppBase||0));g.oppBase=o}
+  S.log.push({kind:'sub',side:'opp',inning:S.inning,half:S.half,type:'相手投手交代',text:`${oppName()} ${old} → ${nm}`,prevOp:old,oppSnap:snap});
+  g.oppP=nm;return true;
+}
+/* 前回のオーダー用：最初に記録した時点の打順を試合の先発として残す */
+function markStart(){if(!S.game.start)S.game.start=JSON.stringify({lineup:S.lineup,pitcher:S.pitcher,dh:S.dh})}
+let paRes=null,paMemo='';
+/* 打席・メモの記録。入力中のメモは paMemo に持つので、点数の±などで画面を描き直しても消えない */
+function recordPA(){
+  const us=usBat(),side=us?'us':'opp',bi=+document.getElementById('pa-b').value,runs=+document.getElementById('pa-r').value,m=paMemo.trim();
+  let who,key=null,pit=null;
+  if(us){const sl=S.lineup[bi];key=keyOf(sl);who=`${bi+1}番 ${sl.pid||sl.helper?plain(sl):`${bi+1}番`}`}
+  else{who=`相手${bi+1}番`;pit=keyOf(curPitcher())}
+  markStart();const o=OUT_PA.includes(paRes)?1:0;
+  S.log.push({kind:'play',inning:S.inning,half:S.half,type:paRes,text:`${who}${m?'　'+m:''}`,runs,side,bi,key,pit,o,op:us?oppPitName():null});
+  if(runs)addRuns(side,S.inning,runs);addOut(o);
+  if(!NOT_PA.includes(paRes)){if(us)S.game.next=(bi+1)%9;else S.game.oppNext=(bi+1)%9}
+  paRes=null;paMemo='';return runs;
+}
+/* 走者の記録（盗塁・牽制死・暴投など）：選んでいる打席の結果・メモ・次の打者は変えない。run:true は成績の打席に数えない印 */
+let srType=null,srMemo='';
+function recordRunner(){
+  const us=usBat(),side=us?'us':'opp',bi=+document.getElementById('pa-sr').value,runs=+document.getElementById('pa-sr-r').value,m=srMemo.trim();
+  let who,key=null;if(us){const sl=S.lineup[bi];key=keyOf(sl);who=`${bi+1}番 ${sl.pid||sl.helper?plain(sl):`${bi+1}番`}`}else who=`相手${bi+1}番`;
+  markStart();const o=OUT_RUN.includes(srType)?1:0;
+  S.log.push({kind:'play',run:true,inning:S.inning,half:S.half,type:srType,text:`${who}${m?'　'+m:''}`,runs,side,bi,key,pit:us?null:keyOf(curPitcher()),o,op:us?oppPitName():null});
+  if(runs)addRuns(side,S.inning,runs);addOut(o);
+  const t=srType;srType=null;srMemo='';return {t,who,runs};
+}
+function recordMemo(type){S.log.push({kind:'play',inning:S.inning,half:S.half,type,text:paMemo.trim(),runs:0});paMemo=''}
+/* チェンジ・試合終了の前に、記録ボタンを押し忘れた打席結果・メモを記録する */
+function flushPending(){
+  let kept=false;if(srType){recordRunner();kept=true}
+  if(paRes){recordPA();return true}
+  if(kept&&!paMemo.trim())return true;
+  if(paMemo.trim()){recordMemo(usBat()?'メモ':'守備');return true}
+  return false;
+}
 function setDH(on){
   if(on===S.dh)return;
   if(on){const i=S.lineup.findIndex(s=>s.pos==='投');
@@ -610,7 +846,7 @@ document.addEventListener('click',e=>{
   if(t.id==='inn-up'){if(S.half){if(S.inning<15){S.inning++;S.half=0}}else S.half=1;save();render();return}
   if(t.id==='inn-dn'){if(S.half)S.half=0;else if(S.inning>1){S.inning--;S.half=1}save();render();return}
   if(t.id==='dh'){setDH(!S.dh);return}
-  if(t.dataset.edit!==undefined){openSheet(t.dataset.edit==='P'?'P':+t.dataset.edit);return}
+  if(t.dataset.edit!==undefined){openSheet(t.dataset.edit==='P'?'P':+t.dataset.edit,sheetCtx&&sheetCtx.key==='pick');return}
   if(t.dataset.pos){sheetCtx.pos=t.dataset.pos;drawSheet();return}
   if(t.dataset.type){sheetCtx.type=sheetCtx.type===t.dataset.type?null:t.dataset.type;drawSheet();return}
   if(t.dataset.mv){const i=sheetCtx.key,j=i+(+t.dataset.mv);
@@ -618,27 +854,35 @@ document.addEventListener('click',e=>{
   if(t.dataset.sh){({sub:()=>applySheet(true),fix:()=>applySheet(false),close:closeSheet})[t.dataset.sh]();return}
   if(t.dataset.del!==undefined){if(!armed(t))return;const id=t.dataset.del;S.roster=S.roster.filter(p=>p.id!==id);S.today.members=S.today.members.filter(x=>x!==id);save();render();toast('削除しました');return}
   if(t.dataset.hdel!==undefined){if(!armed(t))return;const id=t.dataset.hdel;clearKey('h:'+id);S.today.helpers=S.today.helpers.filter(h=>h.id!==id);save();render();toast('助っ人を削除しました');return}
+  if(t.dataset.hcopy!==undefined){const h=S.history[+t.dataset.hcopy];if(h)copyText(maskText(h.text,h.pairs||[]));return}
+  if(t.dataset.smode){S.shareMode=t.dataset.smode;save();render();toast(nominalOnly()?'LINEに出すときは名義だけにします':'LINEに出すときは「名前（名義）」にします');return}
+  if(t.dataset.hdel2!==undefined){if(!armed(t))return;S.history.splice(+t.dataset.hdel2,1);save();render();toast('過去の試合を削除しました');return}
   if(t.dataset.first!==undefined){S.game.first=t.dataset.first==='1';save();render();return}
   if(t.dataset.cell){const [i,h]=t.dataset.cell.split(',').map(Number);S.inning=i;S.half=h;save();render();return}
   if(t.dataset.run){const side=usBat()?'us':'opp';addRuns(side,S.inning,+t.dataset.run);if(S.game.runs[side][S.inning]===undefined&&+t.dataset.run>0)S.game.runs[side][S.inning]=1;save();render();return}
+  if(t.dataset.out){addOut(+t.dataset.out);save();render();return}
+  if(t.dataset.srt){srType=srType===t.dataset.srt?null:t.dataset.srt;document.querySelectorAll('#sr-t button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.srt===srType));document.getElementById('sr-go').disabled=!srType;return}
   if(t.dataset.res){paRes=paRes===t.dataset.res?null:t.dataset.res;document.querySelectorAll('#pa-t button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.res===paRes));document.getElementById('pa-go').disabled=!paRes;return}
   const a=t.dataset.act;
-  if(a==='pa'){const bi=+document.getElementById('pa-b').value,runs=+document.getElementById('pa-r').value,m=document.getElementById('pa-m').value.trim();
-    const sl=S.lineup[bi];const who=sl.pid||sl.helper?plain(sl):`${bi+1}番`;
-    S.log.push({kind:'play',inning:S.inning,half:S.half,type:paRes,text:`${bi+1}番 ${who}${m?'　'+m:''}`,runs,side:'us'});
-    if(runs)addRuns('us',S.inning,runs);
-    if(!NOT_PA.includes(paRes))S.game.next=(bi+1)%9;
-    paRes=null;save();render();toast(runs?`${runs}点追加しました`:'記録しました');return}
-  if(a==='memo'){const m=document.getElementById('pa-m').value.trim();if(!m){toast('メモを入れてください');return}
-    S.log.push({kind:'play',inning:S.inning,half:S.half,type:'守備',text:m,runs:0});save();render();toast('記録しました');return}
-  if(a==='change'){const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
-    if(S.half){S.inning=Math.min(15,S.inning+1);S.half=0}else S.half=1;paRes=null;save();render();toast(`${innTxt(S.inning,S.half)}　${usBat()?'井上病院':oppName()}の攻撃`);return}
-  if(a==='end'){if(!armed(t))return;const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
-    S.game.end={inn:S.inning,half:S.half};paRes=null;save();render();toast('試合終了：'+resultTxt());return}
+  if(a==='pa'){const runs=recordPA();save();render();toast(S.game.outs>=3?'3アウトです。チェンジしてください':runs?`${runs}点追加しました`:'記録しました');return}
+  if(a==='memo'){if(!paMemo.trim()){toast('メモを入れてください');return}
+    recordMemo('守備');save();render();toast('記録しました');return}
+  if(a==='change'){const kept=flushPending();const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
+    markStart();creditOuts(S.game.outs||3);S.game.outs=0;
+    if(S.half){S.inning=Math.min(15,S.inning+1);S.half=0}else S.half=1;paRes=null;save();render();toast(`${kept?'入力中の内容を記録して':''}${innTxt(S.inning,S.half)}　${usBat()?'井上病院':oppName()}の攻撃`);return}
+  if(a==='end'){if(!armed(t))return;const kept=flushPending();const side=usBat()?'us':'opp';if(S.game.runs[side][S.inning]===undefined)S.game.runs[side][S.inning]=0;
+    S.game.end={inn:S.inning,half:S.half};paRes=null;save();render();toast(`${kept?'入力中の内容を記録して':''}試合終了：${resultTxt()}`);return}
   if(a==='resume'){if(!armed(t))return;S.game.end=null;save();render();toast('試合を再開しました');return}
-  if(a==='copygame'){copyText(gameText());return}
+  if(a==='subpick'){openSubPick();return}
+  if(a==='opppick'){openOppPitch();return}
+  if(a==='opprec'){const nm=document.getElementById('op-new').value.trim()||`相手投手${t.dataset.n}`;
+    if(recordOppPitch(nm)){save();closeSheet();render();toast(`相手の投手交代を記録しました（${nm}）`)}return}
+  if(a==='runner'){const r=recordRunner();save();render();toast(S.game.outs>=3?'3アウトです。チェンジしてください':`${r.t}を記録しました（${r.who}）${r.runs?`　${r.runs}点追加`:''}`);return}
+  if(a==='lastorder'){if(S.lineup.some(s=>s.pid||s.helper)&&!armed(t))return;const miss=applyLast();save();render();
+    toast(miss?`前回のオーダーを入れました。今日いない${miss}人の枠が空いています`:'前回のオーダーを入れました');return}
+  if(a==='copygame'){copyText(maskText(gameText()));return}
   if(a==='rcopy'){copyText(rosterText());return}
-  if(a==='bcopy'){copyText(benchText());return}
+  if(a==='bcopy'){copyText(maskText(benchText()));return}
   if(a==='bimg'){benchImage().then(cv=>openShareImage(cv,'ベンチ入り画像','ベンチ入りメンバーの画像','bench'));return}
   if(a==='oimg'){orderImage().then(cv=>openShareImage(cv,'オーダー画像','スターティングオーダーの画像','order'));return}
   if(a==='ishare'){if(shareFile)navigator.share({files:[shareFile]}).catch(()=>{});return}
@@ -647,15 +891,27 @@ document.addEventListener('click',e=>{
     save();render();toast(r.add||r.upd?`${r.add}人追加・${r.upd}人の背番号を更新しました`:'すべて登録済みでした');return}
   if(a==='allin'){S.today.members=S.roster.map(p=>p.id).filter(id=>!S.today.helpers.some(h=>h.as===id));save();render();return}
   if(a==='allout'){S.today.members.forEach(id=>clearKey('m:'+id));S.today.members=[];save();render();return}
-  if(a==='copy'){const txt=orderText();
+  if(a==='copy'){const txt=maskText(orderText());
     const fb=()=>{document.getElementById('fb').innerHTML=`<textarea class="fb" id="fbt" readonly>${esc(txt)}</textarea>`;const x=document.getElementById('fbt');x.focus();x.select();toast('選択した文字をコピーしてください')};
     try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました。LINEなどに貼り付けできます'),fb)}catch(err){fb()}return}
-  if(a==='newgame'){if(!armed(t))return;S.lineup=empty9();S.pitcher=emptyS();S.log=[];S.inning=1;S.half=0;S.game=newGame();S.today={members:[],helpers:[]};S.tab='today';save();render();toast('新しい試合を始めます。出席メンバーを選んでください');return}
-  if(a==='undo'){if(!armed(t))return;const l=S.log.pop();if(l){if(l.kind==='play'){if(l.runs)addRuns(l.side||'us',l.inning,-l.runs)}else if(l.snap){const sn=JSON.parse(l.snap);S.lineup=sn.lineup;S.pitcher=sn.pitcher}}save();render();toast('取り消しました');return}
+  if(a==='newgame'){if(!armed(t))return;const kept=S.log.length>0||total('us')+total('opp')>0;
+    if(kept){S.history.unshift({date:S.game.date||ymd(),opp:oppName(),us:total('us'),them:total('opp'),text:gameText(),pairs:helperPairs()});S.history=S.history.slice(0,50)}
+    const last=S.game.start||(S.lineup.some(s=>s.pid)?JSON.stringify({lineup:S.lineup,pitcher:S.pitcher,dh:S.dh}):null);if(last)S.lastOrder=last;
+    const cup=S.game.cup||'';  /* 大会名は次の試合にも引き継ぐ */
+    paRes=null;paMemo='';srType=null;srMemo='';S.lineup=empty9();S.pitcher=emptyS();S.log=[];S.inning=1;S.half=0;S.game=newGame();S.game.cup=cup;S.today={members:[],helpers:[]};S.tab='today';save();render();toast('新しい試合を始めます。出席メンバーを選んでください');return}
+  if(a==='undo'){if(!armed(t))return;const l=S.log.pop();if(l){if(l.kind==='play'){if(l.runs)addRuns(l.side||'us',l.inning,-l.runs);
+      if(l.o&&l.inning===S.inning&&l.half===S.half)addOut(-l.o)}
+      else if(l.oppSnap){const o=JSON.parse(l.oppSnap);Object.assign(S.game,o)}else if(l.snap){const sn=JSON.parse(l.snap);S.lineup=sn.lineup;S.pitcher=sn.pitcher}}save();render();toast('取り消しました');return}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='g-opp'){S.game.opp=t.value.trim();save();render();return}
+  if(t.id==='g-cup'){S.game.cup=t.value.trim();save();return}
+  if(t.id==='g-oppP'){/* 名前の書き直し：記録済みの打席・アウトの付け先も新しい名前にそろえる */
+    const old=oppPitName();S.game.oppP=t.value.trim();const nw=oppPitName();
+    if(old!==nw){S.log.forEach(l=>{if(l.op===old)l.op=nw;if(l.prevOp===old)l.prevOp=nw});
+      const oo=S.game.oppOuts||{};if(oo[old]!==undefined){oo[nw]=(oo[nw]||0)+oo[old];delete oo[old]}}
+    save();render();return}
   if(t.id==='sh-player'){sheetCtx.sel=t.value||null;updPrev();return}
   if(t.dataset.att){const id=t.dataset.att;
     if(t.checked){if(!S.today.members.includes(id))S.today.members.push(id)}
@@ -679,6 +935,7 @@ document.addEventListener('submit',e=>{
     toast(a?`${n}さんを${P(a).name}さんの名義で追加しました`:`${n}さんを追加しました。名義を選んでください`);return}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetCtx)closeSheet()});
+document.addEventListener('input',e=>{if(e.target.id==='pa-m')paMemo=e.target.value;if(e.target.id==='sr-m')srMemo=e.target.value});
 
 load();render();
 </script>
