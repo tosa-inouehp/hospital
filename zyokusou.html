@@ -784,6 +784,10 @@
             color: black;
             /* Windows は BIZ UDPGothic/Meiryo、iPad は Hiragino（互いに存在しないので順序で見た目は変わらない） */
             font-family: 'BIZ UDPGothic', 'Meiryo', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+            /* 行送りを書体任せ（normal）にしない。Hiragino・Meiryo は normal が約1.5で、
+               BIZ UDPGothic より1枚目が約50mm高くなり iPad で3ページに分かれていた（2026-11-06） */
+            line-height: 1.25;
+            -webkit-text-size-adjust: 100%;
         }
 
         .pdf-header {
@@ -954,8 +958,8 @@
             white-space: pre-wrap;
             font-size: 11px;
             line-height: 1.5;
-            /* 褥瘡あり・写真あり・短文で全体約263mm（上限277mm）。iPad のフォント差の余裕を残す値 */
-            min-height: 120px;
+            /* 褥瘡あり・写真あり・短文で全体約263mm（上限277mm）。書体を変えても±1mm以内 */
+            min-height: 80px;
             margin-top: 3px;
         }
 
@@ -1082,12 +1086,21 @@
             <div class="changelog-section">
                 <div class="changelog-toggle" onclick="toggleChangelog()">
                     <h4>📋 バージョン情報・更新履歴</h4>
-                    <span class="changelog-badge">v1.6.0</span>
+                    <span class="changelog-badge">v1.6.1</span>
                 </div>
                 <div class="changelog-body" id="changelog-body">
                     <div class="changelog-version">
                         <div class="cv-header">
-                            <span class="cv-tag latest">v1.6.0</span>
+                            <span class="cv-tag latest">v1.6.1</span>
+                            <span class="cv-date">2026-11-06</span>
+                        </div>
+                        <ul class="cv-items">
+                            <li>iPad で PDF が3ページに分かれてしまう不具合を修正（1枚目＋写真の2ページに）</li>
+                        </ul>
+                    </div>
+                    <div class="changelog-version">
+                        <div class="cv-header">
+                            <span class="cv-tag old">v1.6.0</span>
                             <span class="cv-date">2026-09-24</span>
                         </div>
                         <ul class="cv-items">
